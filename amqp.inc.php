@@ -8,37 +8,23 @@ class AMQP {
     private $logger;
     private $rmq;
     private $channel;
-    private $timer;
     
     function __construct($loop, $logger) {
+        $this -> loop = $loop;
         $this -> logger = $logger;
-        $this -> connect();
     }
     
-    public function bind($service, $callback) {
-        $channel -> queue_declare($service, false, true); // durable
-        $channel -> basic_consume($service, '', false, false, false, false, $callback); // no auto ack
-    }
-    
-    public function call($service, $)
-    
-    private function connect() {
-        $this -> logger -> info('Initializing AMQP connection');
-        
-        try {
-            if($this -> rmq !== null)
-                $this -> rmq -> close();
-        }
-        catch(Exception $e) {
-        }
-        
-        $this -> rmq = null;
-        $this -> channel = null;
+    public function connect() {
+        $this -> logger -> debug('Initializing AMQP connection');
         
         while(true) {
             try {
                 $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
                 $this -> channel = $this -> rmq -> channel();
+                $this -> channel -> basic_qos(null, 1, null);
+                
+                $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true); // durable
+                
             }
             catch(Exception $e) {
                 $this -> logger -> error($e -> getMessage());
@@ -46,19 +32,29 @@ class AMQP {
             }
         }
         
+        $th = $this;
+        $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
+            $th -> channel -> wait(null, true);
+        });
+        
         $this -> logger -> info('Connected to AMQP');
         
-        $th = $this;
-        $this -> timer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
-            try {
-                $th -> channel -> wait(null, true);
-            }
-            catch(Exception $e) {
-                $th -> loop -> cancelTimer($th -> timer);
-                $th -> logger -> error($e -> getMessage());
-                $th -> connect();
-            }
-        });
+        $this -> logger -> initRemote($loop, $this);
+        $this -> logger -> info('Remote logging initialized');
+    }
+    
+    public function pub() {
+    }
+    
+    public function sub($service, $callback) {
+        $this -> channel -> queue_declare($service, false, true); // durable
+        $this -> channel -> basic_consume($service, '', false, false, false, false, $callback); // no auto ack
+    }
+    
+    public function call() {
+    }
+    
+    public function reg() {
     }
 }
 ?>
