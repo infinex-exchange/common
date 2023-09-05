@@ -44,12 +44,15 @@ class Logger {
             $this -> level = Logger::LL_WARN;
         
         $this -> dirty = array();
+        
+        $this -> debug('Initialized logger');
     }
     
     public function setupRemote($loop, $amqp, $module) {
         $th = $this;
         $hostname = gethostname();
-        $loop -> addPeriodicTimer(1, function () use ($th, $amqp, $module, $hostname) {
+        
+        $loop -> addPeriodicTimer(5, function () use ($th, $amqp, $module, $hostname) {
             while(count($th -> dirty) > 0) {
                 $entry = $th -> dirty[0];
                 $entry['module'] = $module;
@@ -59,10 +62,13 @@ class Logger {
                     array_pop($th -> dirty);
                 }
                 catch(Exception $e) {
+                    $th -> error('Failed to push remote logs');
                     break;
                 }
             }
         });
+        
+        $this -> info('Started remote logging');
     }
     
     public function log($level, $message) {
