@@ -1,5 +1,18 @@
 {
+    "name": "infinex-exchange/common",
+    "description": "Infinex common library",
+    "type": "library",
+    "license": "Apache-2.0",
+    "minimum-stability": "stable",
     "require": {
-        "php-amqplib/php-amqplib": "^3.2",
+        "react/async": "^4.0",
+        "react/promise": "^3@dev",
+        "evenement/evenement": "^3.0",
+        "php-amqplib/php-amqplib": "^3.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Infinex\\": "src/"
+        }
     }
 }
