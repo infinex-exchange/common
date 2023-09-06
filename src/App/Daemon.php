@@ -12,7 +12,7 @@ class Daemon {
     function __construct($module) {
         $this -> log = new Logger();
         
-        $this -> loop = React\EventLoop\Factory::create();
+        $this -> loop = \React\EventLoop\Factory::create();
         $this -> log -> debug('Event loop created');
         
         $this -> amqp = new AMQP();

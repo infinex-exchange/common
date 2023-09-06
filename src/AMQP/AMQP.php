@@ -88,7 +88,7 @@ class AMQP extends EventEmitter {
         $headers['event'] = $event;
         
         $msg = new AMQPMessage(json_encode($body, JSON_PRETTY_PRINT));
-        $msg -> set('application_headers', new Wire\AMQPTable($headers));
+        $msg -> set('application_headers', new \Wire\AMQPTable($headers));
         
         $this -> channel -> basic_publish($msg, 'infinex');
     }
@@ -97,7 +97,7 @@ class AMQP extends EventEmitter {
         $headers['event'] = $event;
         
         $this -> channel -> queue_declare($queue, false, false, false, true); // auto delete
-        $this -> channel -> queue_bind($queue, 'infinex', '', false, new Wire\AMQPTable($headers));
+        $this -> channel -> queue_bind($queue, 'infinex', '', false, new \Wire\AMQPTable($headers));
         $th = $this;
         $this -> channel -> basic_consume(
             $queue,
