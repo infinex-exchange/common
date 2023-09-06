@@ -117,13 +117,22 @@ class AMQP extends EventEmitter {
         return $deferred -> promise();
     }
     
-    public function method() {
+    public function method($method, $callback) {
+        $th = $this;
+        $this -> sub(
+            $method,
+            function($body, $headers) use($th) {
+                $th -> handleRpcRequest($body, $headers, $callback);
+            },
+            $method
+        );
+        $this -> logger -> info('Registered RPC method '.$method);
     }
     
     public function modifier() {
     }
     
-    private function handleMsg($msg, $callback) {
+    public function handleMsg($msg, $callback) {
         $body = json_decode($msg -> body);
         $headers = $msg -> get('application_headers') -> getNativeData();
                 
@@ -146,7 +155,7 @@ class AMQP extends EventEmitter {
         );
     }
     
-    private function handleRpcResponse($body, $headers) {
+    public function handleRpcResponse($body, $headers) {
         if(!isset($headers['requestId'])) {
             $this -> log -> error('Received RPC response without requestId');
             return;
@@ -167,11 +176,57 @@ class AMQP extends EventEmitter {
             );
         } else {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
-                new RPCException('INVALID_RESPONSE', 'Received RPC response with invalid response/error structure')
+                new RPCException('INVALID_RESPONSE', 'Invalid response')
             );
+            
+            $this -> log -> error('Received RPC response with invalid response/error structure for requestId '.$headers['requestId']);
         }
         
         unset($this -> requests[$headers['requestId']]);
+    }
+    
+    public function handleRpcRequest($body, $headers, $callback) {
+        if(!isset($headers['callerId']) || !isset($headers['requestId'])) {
+            $this -> logger -> error('Received RPC request without valid headers');
+            return;
+        }
+        
+        $promise = new Promise(
+            function($resolve, $reject) use($callback, $body) {
+                $resolve($callback($body));
+            }
+        );
+        
+        $th = $this;
+        return $promise -> then(
+            function($resp) use($th) {
+                $th -> pub(
+                    'rpc_response',
+                    [
+                        'response' => $resp
+                    ],
+                    $headers
+                );
+            }
+        ) -> catch(
+            function(RPCException $e) use($th) {
+                $th -> pub(
+                    'rpc_response',
+                    [
+                        'error' => [
+                            'code' => $e -> getStrCode(),
+                            'msg' => $e -> getMessage()
+                        ]
+                    ],
+                    $headers
+                );
+            }
+        ) -> catch(
+            function(Exception $e) use($th) {
+                $th -> logger -> error('Failed to handle RPC request: '.( (string) $e ));
+                throw $e;
+            }
+        );
     }
 }
 ?>
