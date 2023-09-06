@@ -129,7 +129,16 @@ class AMQP extends EventEmitter {
         $this -> logger -> info('Registered RPC method '.$method);
     }
     
-    public function modifier() {
+    public function modifier($method, $callback) {
+        $th = $this;
+        $this -> sub(
+            $method,
+            function($body, $headers) use($th) {
+                $th -> handleRpcRequest($body, $headers, $callback, true);
+            },
+            $method
+        );
+        $this -> logger -> info('Registered RPC modifier '.$method);
     }
     
     public function handleMsg($msg, $callback) {
@@ -185,7 +194,7 @@ class AMQP extends EventEmitter {
         unset($this -> requests[$headers['requestId']]);
     }
     
-    public function handleRpcRequest($body, $headers, $callback) {
+    public function handleRpcRequest($body, $headers, $callback, $modifier = false) {
         if(!isset($headers['callerId']) || !isset($headers['requestId'])) {
             $this -> logger -> error('Received RPC request without valid headers');
             return;
@@ -199,14 +208,23 @@ class AMQP extends EventEmitter {
         
         $th = $this;
         return $promise -> then(
-            function($resp) use($th) {
-                $th -> pub(
-                    'rpc_response',
-                    [
-                        'response' => $resp
-                    ],
-                    $headers
-                );
+            function($resp) use($th, $modifier) {
+                if(!$modifier) {
+                    $th -> pub(
+                        'rpc_response',
+                        [
+                            'response' => $resp
+                        ],
+                        $headers
+                    );
+                }
+                else {
+                    $th -> pub(
+                        $resp['method'],
+                        $resp['body'],
+                        $headers
+                    );
+                }
             }
         ) -> catch(
             function(RPCException $e) use($th) {
