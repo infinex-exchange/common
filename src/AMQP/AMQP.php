@@ -40,6 +40,7 @@ class AMQP extends EventEmitter {
     }
     
     private function connect() {
+        $th = this;
         try {
             $this -> log -> debug('Trying to establish AMQP connection');
             
@@ -49,7 +50,6 @@ class AMQP extends EventEmitter {
             $this -> channel -> basic_qos(null, 1, null);
             $this -> log -> info('Connected to AMQP');
             
-            $th = $this;
             $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
                 try {
                     $th -> channel -> wait(null, true);
@@ -75,7 +75,7 @@ class AMQP extends EventEmitter {
         catch(\Exception $e) {
             $this -> log -> error($e -> getMessage());
             
-            $loop -> addTimer(
+            $this -> loop -> addTimer(
                 function() use($th) {
                     $th -> connect();
                 },
@@ -265,7 +265,7 @@ class AMQP extends EventEmitter {
                 );
             }
         ) -> catch(
-            function(Exception $e) use($th) {
+            function(\Exception $e) use($th) {
                 $th -> log -> error('Failed to handle RPC request: '.( (string) $e ));
                 throw $e;
             }
