@@ -167,7 +167,7 @@ class AMQP extends EventEmitter {
     }
     
     public function handleMsg($msg, $callback) {
-        $body = json_decode($msg -> body);
+        $body = json_decode($msg -> body, true);
         $headers = $msg -> get('application_headers') -> getNativeData();
                 
         $promise = new Promise(
@@ -202,11 +202,11 @@ class AMQP extends EventEmitter {
         
         $this -> loop -> cancelTimer($this -> requests[$headers['requestId']]['timeout']);
         
-        if(isset($body -> response)) {
-            $this -> requests[$headers['requestId']]['deferred'] -> resolve($body -> response);
-        } else if(isset($body -> error) && isset($body -> error -> code) && isset($body -> error -> msg)) {
+        if(isset($body['response'])) {
+            $this -> requests[$headers['requestId']]['deferred'] -> resolve($body['response']);
+        } else if(isset($body['error']) && isset($body['error']['code']) && isset($body['error']['msg'])) {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
-                new RPCException($body -> error -> code, $body -> error -> message)
+                new RPCException($body['error']['code'], $body['error']['message'])
             );
         } else {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
