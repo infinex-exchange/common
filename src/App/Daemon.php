@@ -5,9 +5,9 @@ namespace Infinex\App;
 use Infinex\AMQP\AMQP;
 
 class Daemon {
-    private $log;
-    private $loop;
-    private $amqp;
+    protected $log;
+    protected $loop;
+    protected $amqp;
     
     function __construct($module) {
         $this -> log = new Logger();
