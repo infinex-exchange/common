@@ -54,7 +54,7 @@ class AMQP extends EventEmitter {
                 try {
                     $th -> channel -> wait(null, true);
                 }
-                catch(Exception $e) {
+                catch(Throwable $e) {
                     $th -> loop -> cancelTimer($th -> waitTimer);
                     $th -> emit('disconnect');
                 }
@@ -72,7 +72,7 @@ class AMQP extends EventEmitter {
             
             $this -> emit('connect');
         }
-        catch(Exception $e) {
+        catch(Throwable $e) {
             $this -> log -> error($e -> getMessage());
             
             $loop -> addTimer(
