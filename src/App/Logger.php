@@ -61,7 +61,7 @@ class Logger {
                     $amqp -> pub('log', $entry);
                     array_pop($th -> dirty);
                 }
-                catch(Exception $e) {
+                catch(\Exception $e) {
                     $th -> error('Failed to push remote logs');
                     break;
                 }

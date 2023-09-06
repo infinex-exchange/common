@@ -2,7 +2,7 @@
 
 namespace Infinex\App;
 
-class InfinexException extends Exception {
+class InfinexException extends \Exception {
     protected $strCode;
     
     function __construct($strCode, $message, $code = 0) {
