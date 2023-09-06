@@ -17,6 +17,7 @@ class AMQP extends EventEmitter {
     private $channel;
     private $callerId;
     private $requests;
+    private $waitTimer;
     
     function __construct($loop, $logger) {
         $this -> loop = $loop;
@@ -24,14 +25,21 @@ class AMQP extends EventEmitter {
         $this -> callerId = bin2hex(random_bytes(16));
         
         $th = $this;
-        $loop -> futureTick(function() use($th) {
-            $th -> connect();
+        $this -> on('disconnect', function() use($th) {
+            $th -> start();
         });
         
         $this -> logger -> debug('Initialized AMQP stack');
     }
     
-    public function connect() {
+    public function start() {
+        $th = $this;
+        $loop -> futureTick(function() use($th) {
+            $th -> connect();
+        });
+    }
+    
+    private function connect() {
         try {
             $this -> logger -> debug('Trying to establish AMQP connection');
             
@@ -42,6 +50,16 @@ class AMQP extends EventEmitter {
             $this -> logger -> info('Connected to AMQP');
             
             $th = $this;
+            $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
+                try {
+                    $th -> channel -> wait(null, true);
+                }
+                catch(Exception $e) {
+                    $th -> loop -> cancelTimer($th -> waitTimer);
+                    $th -> emit('disconnect');
+                }
+            });
+            
             $this -> sub(
                 'rpc_response',
                 function($body, $headers) use($th) {
@@ -52,12 +70,17 @@ class AMQP extends EventEmitter {
             );
             $this -> logger -> info('Subscribed to RPC response queue');
             
-            $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
-                $th -> channel -> wait(null, true);
-            });
+            $this -> emit('connect');
         }
         catch(Exception $e) {
             $this -> logger -> error($e -> getMessage());
+            
+            $loop -> addTimer(
+                function() use($th) {
+                    $th -> connect();
+                },
+                1
+            );
         }
     }
     
@@ -66,11 +89,13 @@ class AMQP extends EventEmitter {
         
         $msg = new AMQPMessage(json_encode($body, JSON_PRETTY_PRINT));
         $msg -> set('application_headers', new Wire\AMQPTable($headers));
+        
         $this -> channel -> basic_publish($msg, 'infinex');
     }
     
     public function sub($event, $callback, $queue, $headers = []) {
         $headers['event'] = $event;
+        
         $this -> channel -> queue_declare($queue, false, false, false, true); // auto delete
         $this -> channel -> queue_bind($queue, 'infinex', '', false, new Wire\AMQPTable($headers));
         $th = $this;

@@ -20,6 +20,7 @@ class Daemon {
         $this -> amqp -> once('connect', function() use($th, $module) {
             $th -> log -> setupRemote($th -> loop, $th -> amqp, $module);
         });
+        $this -> amqp -> start();
     }
     
     public function run() {
