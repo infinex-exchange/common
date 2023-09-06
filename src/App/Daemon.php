@@ -1,6 +1,8 @@
 <?php
 
-namespace Infinex;
+namespace Infinex\App;
+
+use Infinex\AMQP\AMQP;
 
 class Daemon {
     private $log;

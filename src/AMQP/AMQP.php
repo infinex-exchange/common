@@ -1,6 +1,6 @@
 <?php
 
-namespace Infinex;
+namespace Infinex\AMQP;
 
 use Evenement\EventEmitter;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
