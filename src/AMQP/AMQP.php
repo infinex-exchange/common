@@ -243,12 +243,24 @@ class AMQP extends EventEmitter {
                         $headers
                     );
                 }
-                else {
+                else if(isset($resp['response'])) {
+                    $th -> pub(
+                        'rpc_response',
+                        [
+                            'response' => $resp['response']
+                        ],
+                        $headers
+                    );
+                }
+                else if(isset($resp['method']) && isset($resp['body'])) {
                     $th -> pub(
                         $resp['method'],
                         $resp['body'],
                         $headers
                     );
+                }
+                else {
+                    throw new Exception('Invalid structure returned from modifier callback');
                 }
             }
         ) -> catch(
