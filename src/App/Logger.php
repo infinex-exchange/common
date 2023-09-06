@@ -34,6 +34,8 @@ class Logger {
     private $dirty;
     
     function __construct() {
+        global $argv;
+        
         if(isset($argv) && in_array('-d', $argv))
             $this -> level = Logger::LL_DEBUG;
         
