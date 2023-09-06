@@ -76,10 +76,10 @@ class AMQP extends EventEmitter {
             $this -> log -> error($e -> getMessage());
             
             $this -> loop -> addTimer(
+                1,
                 function() use($th) {
                     $th -> connect();
-                },
-                1
+                }
             );
         }
     }
@@ -117,6 +117,7 @@ class AMQP extends EventEmitter {
         $deferred = new Deferred();
         $th = $this;
         $timeout = $this -> loop -> addTimer(
+            $timeout,
             function() use($th, $requestId, $deferred) {
                 unset($th -> requests[$requestId]);
                 
@@ -125,8 +126,7 @@ class AMQP extends EventEmitter {
                 );
                 
                 $th -> log -> error('Timeout for RPC request '.$requestId);
-            },
-            $timeout
+            }
         );
         $this -> requests[$requestId] = [
             'deferred' => $deferred,
