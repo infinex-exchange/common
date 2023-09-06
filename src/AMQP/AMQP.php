@@ -12,16 +12,16 @@ use React\Promise\Deferred;
 
 class AMQP extends EventEmitter {
     private $loop;
-    private $logger;
+    private $log;
     private $rmq;
     private $channel;
     private $callerId;
     private $requests;
     private $waitTimer;
     
-    function __construct($loop, $logger) {
+    function __construct($loop, $log) {
         $this -> loop = $loop;
-        $this -> logger = $logger;
+        $this -> log = $log;
         $this -> callerId = bin2hex(random_bytes(16));
         
         $th = $this;
@@ -29,7 +29,7 @@ class AMQP extends EventEmitter {
             $th -> start();
         });
         
-        $this -> logger -> debug('Initialized AMQP stack');
+        $this -> log -> debug('Initialized AMQP stack');
     }
     
     public function start() {
@@ -41,13 +41,13 @@ class AMQP extends EventEmitter {
     
     private function connect() {
         try {
-            $this -> logger -> debug('Trying to establish AMQP connection');
+            $this -> log -> debug('Trying to establish AMQP connection');
             
             $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
             $this -> channel = $this -> rmq -> channel();
             $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true); // durable
             $this -> channel -> basic_qos(null, 1, null);
-            $this -> logger -> info('Connected to AMQP');
+            $this -> log -> info('Connected to AMQP');
             
             $th = $this;
             $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
@@ -68,12 +68,12 @@ class AMQP extends EventEmitter {
                 'rpc_resp_'.$this -> callerId,
                 [ 'callerId' => $this -> callerId ]
             );
-            $this -> logger -> info('Subscribed to RPC response queue');
+            $this -> log -> info('Subscribed to RPC response queue');
             
             $this -> emit('connect');
         }
         catch(Exception $e) {
-            $this -> logger -> error($e -> getMessage());
+            $this -> log -> error($e -> getMessage());
             
             $loop -> addTimer(
                 function() use($th) {
@@ -151,7 +151,7 @@ class AMQP extends EventEmitter {
             },
             $method
         );
-        $this -> logger -> info('Registered RPC method '.$method);
+        $this -> log -> info('Registered RPC method '.$method);
     }
     
     public function modifier($method, $callback) {
@@ -163,7 +163,7 @@ class AMQP extends EventEmitter {
             },
             $method
         );
-        $this -> logger -> info('Registered RPC modifier '.$method);
+        $this -> log -> info('Registered RPC modifier '.$method);
     }
     
     public function handleMsg($msg, $callback) {
@@ -184,7 +184,7 @@ class AMQP extends EventEmitter {
         ) -> catch(
             function(Exception $e) use($msg, $th) {
                 $msg -> reject(true);
-                $th -> logger -> error('Rejected AMQP message: '.((string) $e));
+                $th -> log -> error('Rejected AMQP message: '.((string) $e));
             }
         );
     }
@@ -221,7 +221,7 @@ class AMQP extends EventEmitter {
     
     public function handleRpcRequest($body, $headers, $callback, $modifier = false) {
         if(!isset($headers['callerId']) || !isset($headers['requestId'])) {
-            $this -> logger -> error('Received RPC request without valid headers');
+            $this -> log -> error('Received RPC request without valid headers');
             return;
         }
         
@@ -266,7 +266,7 @@ class AMQP extends EventEmitter {
             }
         ) -> catch(
             function(Exception $e) use($th) {
-                $th -> logger -> error('Failed to handle RPC request: '.( (string) $e ));
+                $th -> log -> error('Failed to handle RPC request: '.( (string) $e ));
                 throw $e;
             }
         );

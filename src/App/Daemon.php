@@ -15,7 +15,7 @@ class Daemon {
         $this -> loop = \React\EventLoop\Factory::create();
         $this -> log -> debug('Event loop created');
         
-        $this -> amqp = new AMQP($this -> loop, $this -> logger);
+        $this -> amqp = new AMQP($this -> loop, $this -> log);
         $th = $this;
         $this -> amqp -> once('connect', function() use($th, $module) {
             $th -> log -> setupRemote($th -> loop, $th -> amqp, $module);
