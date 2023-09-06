@@ -46,7 +46,7 @@ class AMQP extends EventEmitter {
             
             $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
             $this -> channel = $this -> rmq -> channel();
-            $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true); // durable
+            $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true, false); // durable, no auto-delete
             $this -> channel -> basic_qos(null, 1, null);
             $this -> log -> info('Connected to AMQP');
             
@@ -96,7 +96,7 @@ class AMQP extends EventEmitter {
     public function sub($event, $callback, $queue, $headers = []) {
         $headers['event'] = $event;
         
-        $this -> channel -> queue_declare($queue, false, false, false, true); // auto delete
+        $this -> channel -> queue_declare($queue, false, true, false, true); // durable, auto delete
         $this -> channel -> queue_bind($queue, 'infinex', '', false, new AMQPTable($headers));
         $th = $this;
         $this -> channel -> basic_consume(
