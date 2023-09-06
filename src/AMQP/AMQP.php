@@ -40,7 +40,7 @@ class AMQP extends EventEmitter {
     }
     
     private function connect() {
-        $th = this;
+        $th = $this;
         try {
             $this -> log -> debug('Trying to establish AMQP connection');
             
