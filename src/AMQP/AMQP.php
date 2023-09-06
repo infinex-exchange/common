@@ -34,7 +34,7 @@ class AMQP extends EventEmitter {
     
     public function start() {
         $th = $this;
-        $loop -> futureTick(function() use($th) {
+        $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
     }
