@@ -93,10 +93,13 @@ class AMQP extends EventEmitter {
         $this -> channel -> basic_publish($msg, 'infinex');
     }
     
-    public function sub($event, $callback, $queue, $headers = []) {
+    public function sub($event, $callback, $queue = null, $headers = []) {
+        if($queue === null)
+            $queue = $event;
+        
         $headers['event'] = $event;
         
-        $this -> channel -> queue_declare($queue, false, true, false, true); // durable, auto delete
+        $this -> channel -> queue_declare($queue, false, true, false, ($event != $queue)); // durable, auto delete
         $this -> channel -> queue_bind($queue, 'infinex', '', false, new AMQPTable($headers));
         $th = $this;
         $this -> channel -> basic_consume(
@@ -148,8 +151,7 @@ class AMQP extends EventEmitter {
             $method,
             function($body, $headers) use($th, $callback) {
                 $th -> handleRpcRequest($body, $headers, $callback);
-            },
-            $method
+            }
         );
         $this -> log -> info('Registered RPC method '.$method);
     }
@@ -160,8 +162,7 @@ class AMQP extends EventEmitter {
             $method,
             function($body, $headers) use($th, $callback) {
                 $th -> handleRpcRequest($body, $headers, $callback, true);
-            },
-            $method
+            }
         );
         $this -> log -> info('Registered RPC modifier '.$method);
     }
