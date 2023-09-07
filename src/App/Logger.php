@@ -53,12 +53,14 @@ class Logger {
     public function setupRemote($loop, $amqp, $module) {
         $th = $this;
         $hostname = gethostname();
+        $instance = getmypid();
         
-        $loop -> addPeriodicTimer(5, function () use ($th, $amqp, $module, $hostname) {
+        $loop -> addPeriodicTimer(5, function () use ($th, $amqp, $service, $hostname, $instance) {
             while(count($th -> dirty) > 0) {
                 $entry = $th -> dirty[0];
-                $entry['module'] = $module;
+                $entry['service'] = $service;
                 $entry['hostname'] = $hostname;
+                $entry['instance'] = $instance;
                 try {
                     $amqp -> pub('log', $entry);
                     array_pop($th -> dirty);
