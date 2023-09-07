@@ -233,7 +233,7 @@ class AMQP extends EventEmitter {
         
         $th = $this;
         return $promise -> then(
-            function($resp) use($th, $modifier) {
+            function($resp) use($th, $modifier, $headers) {
                 if(!$modifier) {
                     $th -> pub(
                         'rpc_response',
@@ -264,7 +264,7 @@ class AMQP extends EventEmitter {
                 }
             }
         ) -> catch(
-            function(RPCException $e) use($th) {
+            function(RPCException $e) use($th, $headers) {
                 $th -> pub(
                     'rpc_response',
                     [
