@@ -118,7 +118,7 @@ class AMQP extends EventEmitter {
         $th = $this;
         $timeout = $this -> loop -> addTimer(
             $timeout,
-            function() use($th, $requestId, $deferred) {
+            function() use($th, $requestId, $deferred, $timeout) {
                 unset($th -> requests[$requestId]);
                 
                 $deferred -> reject(
