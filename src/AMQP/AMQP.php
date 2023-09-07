@@ -107,7 +107,7 @@ class AMQP extends EventEmitter {
             false,
             false,
             function($msg) use($th, $callback) {
-                $th -> handleMessage($msg, $callback);
+                $th -> handleMsg($msg, $callback);
             }
         );
     }
