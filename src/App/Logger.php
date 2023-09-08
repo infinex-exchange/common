@@ -76,7 +76,7 @@ class Logger {
     }
     
     public function log($level, $message) {
-        $now = time();
+        $now = microtime(true);
         
         $this -> dirty[] = [
             'time' => $now,
