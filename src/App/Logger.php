@@ -50,7 +50,7 @@ class Logger {
         $this -> debug('Initialized logger');
     }
     
-    public function setupRemote($loop, $amqp, $module) {
+    public function setupRemote($loop, $amqp, $service) {
         $th = $this;
         $hostname = gethostname();
         $instance = getmypid();
