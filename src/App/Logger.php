@@ -63,7 +63,7 @@ class Logger {
                 $entry['instance'] = $instance;
                 try {
                     $amqp -> pub('log', $entry);
-                    array_pop($th -> dirty);
+                    array_shift($th -> dirty);
                 }
                 catch(\Exception $e) {
                     $th -> error('Failed to push remote logs');
