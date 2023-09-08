@@ -76,6 +76,8 @@ class Logger {
     }
     
     public function log($level, $message) {
+        $now = time();
+        
         $this -> dirty[] = [
             'time' => $now,
             'level' => $level,
@@ -86,7 +88,6 @@ class Logger {
             return;
         
         $levelStr = Logger::DESC_MAP[$level];
-        $now = time();
         
         echo date('r', $now).
              Logger::COLOR_MAP[$level].
