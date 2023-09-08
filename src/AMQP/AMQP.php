@@ -66,6 +66,7 @@ class AMQP extends EventEmitter {
                     $th -> handleRpcResponse($body, $headers);
                 },
                 'rpc_resp_'.$this -> callerId,
+                false,
                 [ 'callerId' => $this -> callerId ]
             );
             $this -> log -> info('Subscribed to RPC response queue');
@@ -93,13 +94,16 @@ class AMQP extends EventEmitter {
         $this -> channel -> basic_publish($msg, 'infinex');
     }
     
-    public function sub($event, $callback, $queue = null, $headers = []) {
+    public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
         if($queue === null)
             $queue = $event;
         
+        if($persistent === null)
+            $persistent = ($queue == $event);
+        
         $headers['event'] = $event;
         
-        $this -> channel -> queue_declare($queue, false, true, false, ($event != $queue)); // durable, auto delete
+        $this -> channel -> queue_declare($queue, false, true, false, !$persistent); // durable, auto delete
         $this -> channel -> queue_bind($queue, 'infinex', '', false, new AMQPTable($headers));
         $th = $this;
         $this -> channel -> basic_consume(
