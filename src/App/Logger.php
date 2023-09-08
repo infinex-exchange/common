@@ -76,6 +76,12 @@ class Logger {
     }
     
     public function log($level, $message) {
+        $this -> dirty[] = [
+            'time' => $now,
+            'level' => $level,
+            'msg' => $message
+        ];
+        
         if($level > $this -> level)
             return;
         
@@ -94,12 +100,6 @@ class Logger {
         echo Logger::C_RESET.
              $message.
              PHP_EOL;
-        
-        $this -> dirty[] = [
-            'time' => $now,
-            'level' => $level,
-            'msg' => $message
-        ];
     }
     
     public function error($message) {
