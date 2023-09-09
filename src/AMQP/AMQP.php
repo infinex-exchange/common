@@ -47,7 +47,6 @@ class AMQP extends EventEmitter {
             $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
             $this -> channel = $this -> rmq -> channel();
             $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true, false); // durable, no auto-delete
-            $this -> channel -> basic_qos(null, 1, null);
             $this -> log -> info('Connected to AMQP');
             
             $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
@@ -85,11 +84,13 @@ class AMQP extends EventEmitter {
         }
     }
     
-    public function pub($event, $body = [], $headers = []) {
+    public function pub($event, $body = [], $headers = [], $persistent = true) {
         $headers['event'] = $event;
         
         $msg = new AMQPMessage(json_encode($body, JSON_UNESCAPED_SLASHES));
         $msg -> set('application_headers', new AMQPTable($headers));
+        if($persistent)
+            $msg -> set('delivery_mode', AMQPMessage::DELIVERY_MODE_PERSISTENT);
         
         $this -> channel -> basic_publish($msg, 'infinex');
     }
@@ -144,7 +145,7 @@ class AMQP extends EventEmitter {
             'callerId' => $this -> callerId,
             'requestId' => $requestId
         ];
-        $this -> pub($method, $params, $headers);
+        $this -> pub($method, $params, $headers, false);
         
         return $deferred -> promise();
     }
@@ -245,7 +246,8 @@ class AMQP extends EventEmitter {
                         [
                             'response' => $resp
                         ],
-                        $headers
+                        $headers,
+                        false
                     );
                 }
                 else if(isset($resp['response'])) {
@@ -254,14 +256,16 @@ class AMQP extends EventEmitter {
                         [
                             'response' => $resp['response']
                         ],
-                        $headers
+                        $headers,
+                        false
                     );
                 }
                 else if(isset($resp['method']) && isset($resp['body'])) {
                     $th -> pub(
                         $resp['method'],
                         $resp['body'],
-                        $headers
+                        $headers,
+                        false
                     );
                 }
                 else {
@@ -278,7 +282,8 @@ class AMQP extends EventEmitter {
                             'msg' => $e -> getMessage()
                         ]
                     ],
-                    $headers
+                    $headers,
+                    false
                 );
             }
         ) -> catch(
