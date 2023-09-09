@@ -88,7 +88,7 @@ class AMQP extends EventEmitter {
     public function pub($event, $body = [], $headers = []) {
         $headers['event'] = $event;
         
-        $msg = new AMQPMessage(json_encode($body, JSON_PRETTY_PRINT));
+        $msg = new AMQPMessage(json_encode($body, JSON_UNESCAPED_SLASHES));
         $msg -> set('application_headers', new AMQPTable($headers));
         
         $this -> channel -> basic_publish($msg, 'infinex');
