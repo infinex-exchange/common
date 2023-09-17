@@ -208,7 +208,7 @@ class AMQP extends EventEmitter {
         
         $this -> loop -> cancelTimer($this -> requests[$headers['requestId']]['timeout']);
         
-        if(isset($body['response'])) {
+        if(array_key_exists('response', $body)) {
             $this -> requests[$headers['requestId']]['deferred'] -> resolve($body['response']);
         } else if(isset($body['error']) && isset($body['error']['code']) && isset($body['error']['msg'])) {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
