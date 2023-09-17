@@ -45,7 +45,7 @@ class API {
                     case FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
                         throw new APIException(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
                     case FastRoute\Dispatcher::FOUND:
-                        $resolve($routeInfo[1]($routeInfo[2], $body));
+                        $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth']));
                 }
             }
         );
