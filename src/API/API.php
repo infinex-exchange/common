@@ -9,13 +9,16 @@ class API {
     private $dispatcher;
     private $rpcMethod;
     
-    function __construct($log, $rpcMethod, $api) {
+    function __construct($log, $rpcMethod, $apis) {
         $this -> log = $log;
         $this -> rpcMethod = $rpcMethod;
         
         $this -> dispatcher = new FastRoute\simpleDispatcher(
-            function(RouteCollector $rc) use($api) {  
-                $api -> initRoutes($rc);
+            function(RouteCollector $rc) use($apis) {
+                if(!is_array($apis))
+                    $apis = [ $apis ];
+                foreach($apis as $api)
+                    $api -> initRoutes($rc);
             }
         );
         
