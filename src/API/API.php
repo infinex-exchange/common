@@ -53,7 +53,7 @@ class API {
                         foreach($routeInfo[2] as $k => $v) {
                             $intVal = filter_var($v, FILTER_VALIDATE_INT);
                             if($intVal !== false)
-                                $routeInfo[$k] = $intVal;
+                                $routeInfo[2][$k] = $intVal;
                         }
                         $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth'], $body['userAgent']));
                 }
