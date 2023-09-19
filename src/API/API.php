@@ -50,7 +50,7 @@ class API {
                     case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
                         throw new APIException(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
                     case \FastRoute\Dispatcher::FOUND:
-                        foreach($i = 0; $i < count($routeInfo[2]); $i++) {
+                        for($i = 0; $i < count($routeInfo[2]); $i++) {
                             $intVal = filter_var($routeInfo[2][$i], FILTER_VALIDATE_INT);
                             if($intVal !== false)
                                 $routeInfo[2][$i] = $intVal;
