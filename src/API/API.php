@@ -1,5 +1,7 @@
 <?php
 
+namespace Infinex\API;
+
 use Infinex\API\APIException;
 use FastRoute\RouteCollector;
 use React\Promise\Promise;
