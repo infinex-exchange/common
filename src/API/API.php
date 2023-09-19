@@ -50,10 +50,10 @@ class API {
                     case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
                         throw new APIException(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
                     case \FastRoute\Dispatcher::FOUND:
-                        for($i = 0; $i < count($routeInfo[2]); $i++) {
-                            $intVal = filter_var($routeInfo[2][$i], FILTER_VALIDATE_INT);
+                        foreach($routeInfo[2] as $k => $v) {
+                            $intVal = filter_var($v, FILTER_VALIDATE_INT);
                             if($intVal !== false)
-                                $routeInfo[2][$i] = $intVal;
+                                $routeInfo[$k] = $intVal;
                         }
                         $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth'], $body['userAgent']));
                 }
