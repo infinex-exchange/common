@@ -15,7 +15,7 @@ class API {
         $this -> log = $log;
         $this -> rpcMethod = $rpcMethod;
         
-        $this -> dispatcher = new FastRoute\simpleDispatcher(
+        $this -> dispatcher = new \FastRoute\simpleDispatcher(
             function(RouteCollector $rc) use($apis) {
                 if(!is_array($apis))
                     $apis = [ $apis ];
@@ -45,11 +45,11 @@ class API {
                 $routeInfo = $this -> dispatcher -> dispatch($body['method'], $body['path']);
                 
                 switch($routeInfo[0]) {
-                    case FastRoute\Dispatcher::NOT_FOUND:
+                    case \FastRoute\Dispatcher::NOT_FOUND:
                         throw new APIException(404, 'INVALID_ENDPOINT', 'Invalid endpoint');
-                    case FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
+                    case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
                         throw new APIException(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
-                    case FastRoute\Dispatcher::FOUND:
+                    case \FastRoute\Dispatcher::FOUND:
                         $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth'], $body['userAgent']));
                 }
             }
