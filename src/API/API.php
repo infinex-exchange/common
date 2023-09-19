@@ -15,7 +15,7 @@ class API {
         $this -> log = $log;
         $this -> rpcMethod = $rpcMethod;
         
-        $this -> dispatcher = new \FastRoute\simpleDispatcher(
+        $this -> dispatcher = \FastRoute\simpleDispatcher(
             function(RouteCollector $rc) use($apis) {
                 if(!is_array($apis))
                     $apis = [ $apis ];
