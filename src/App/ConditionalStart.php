@@ -1,6 +1,6 @@
 <?php
 
-namespace Infinex;
+namespace Infinex\App;
 
 class ConditionalStart {
     private $loop;

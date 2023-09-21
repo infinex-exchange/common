@@ -4,21 +4,24 @@ namespace Infinex\App;
 
 use Infinex\AMQP\AMQP;
 
-class Daemon {
+class App {
     protected $log;
     protected $loop;
     protected $amqp;
     
-    function __construct($module) {
-        $this -> log = new Logger();
+    function __construct($service) {
+        $th = $this;
         
         $this -> loop = \React\EventLoop\Factory::create();
-        $this -> log -> debug('Event loop created');
+        $this -> log = new Logger($this -> loop, $service);
         
         $this -> amqp = new AMQP($this -> loop, $this -> log);
-        $th = $this;
-        $this -> amqp -> once('connect', function() use($th, $module) {
-            $th -> log -> setupRemote($th -> loop, $th -> amqp, $module);
+        $this -> log -> setAmqp($this -> amqp);
+        $this -> amqp -> on('connect', function() use($th) {
+            $th -> log -> start();
+        });
+        $this -> amqp -> on('disconnect', function() use($th) {
+            $th -> log -> stop();
         });
         $this -> amqp -> start();
     }

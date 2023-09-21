@@ -2,86 +2,43 @@
 
 namespace Infinex\AMQP;
 
+use Infinex\Exceptions\Error;
 use Evenement\EventEmitter;
-use PhpAmqpLib\Connection\AMQPStreamConnection;
-use PhpAmqpLib\Exchange\AMQPExchangeType;
-use PhpAmqpLib\Message\AMQPMessage;
-use PhpAmqpLib\Wire\AMQPTable;
+use
 use React\Promise\Promise;
 use React\Promise\Deferred;
 
 class AMQP extends EventEmitter {
     private $loop;
     private $log;
-    private $rmq;
+    private $client;
     private $channel;
     private $callerId;
     private $requests;
-    private $waitTimer;
     
     function __construct($loop, $log) {
         $this -> loop = $loop;
         $this -> log = $log;
         $this -> callerId = bin2hex(random_bytes(16));
         
-        $th = $this;
-        $this -> on('disconnect', function() use($th) {
-            $th -> start();
-        });
-        
         $this -> log -> debug('Initialized AMQP stack');
     }
     
     public function start() {
         $th = $this;
+        
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
+        
+        $this -> log -> info('Started AMQP');
     }
     
-    private function connect() {
-        $th = $this;
-        try {
-            $this -> log -> debug('Trying to establish AMQP connection');
-            
-            $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
-            $this -> channel = $this -> rmq -> channel();
-            $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true, false); // durable, no auto-delete
-            $this -> log -> info('Connected to AMQP');
-            
-            $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
-                try {
-                    $th -> channel -> wait(null, true);
-                }
-                catch(\Exception $e) {
-                    $th -> loop -> cancelTimer($th -> waitTimer);
-                    $th -> emit('disconnect');
-                }
-            });
-            
-            $this -> sub(
-                'rpc_response',
-                function($body, $headers) use($th) {
-                    $th -> handleRpcResponse($body, $headers);
-                },
-                'rpc_resp_'.$this -> callerId,
-                false,
-                [ 'callerId' => $this -> callerId ]
-            );
-            $this -> log -> info('Subscribed to RPC response queue');
-            
-            $this -> emit('connect');
-        }
-        catch(\Exception $e) {
-            $this -> log -> error($e -> getMessage());
-            
-            $this -> loop -> addTimer(
-                1,
-                function() use($th) {
-                    $th -> connect();
-                }
-            );
-        }
+    public function stop() {
+        $this -> emit('disconnect');
+        $this -> cancelTimer($this -> timerRetryConn);
+        $this -> client -> disconnect();
+        $this -> log -> info('Stopped AMQP');
     }
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
@@ -170,6 +127,62 @@ class AMQP extends EventEmitter {
             }
         );
         $this -> log -> info('Registered RPC modifier '.$method);
+    }
+    
+    private function connect() {
+        $th = $this;
+        try {
+            $this -> log -> debug('Trying to establish AMQP connection');
+            
+            $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
+            $this -> channel = $this -> rmq -> channel();
+            $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true, false); // durable, no auto-delete
+            $this -> log -> info('Connected to AMQP');
+            
+            $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
+                try {
+                    $th -> channel -> wait(null, true);
+                }
+                catch(\Exception $e) {
+                    $th -> loop -> cancelTimer($th -> waitTimer);
+                    $th -> emit('disconnect');
+                }
+            });
+            
+            $this -> sub(
+                'rpc_response',
+                function($body, $headers) use($th) {
+                    $th -> handleRpcResponse($body, $headers);
+                },
+                'rpc_resp_'.$this -> callerId,
+                false,
+                [ 'callerId' => $this -> callerId ]
+            );
+            $this -> log -> info('Subscribed to RPC response queue');
+            
+            $this -> emit('connect');
+        }
+        catch(\Exception $e) {
+            $this -> log -> error($e -> getMessage());
+            
+            $this -> loop -> addTimer(
+                1,
+                function() use($th) {
+                    $th -> connect();
+                }
+            );
+        }
+    }
+    
+    private function disconnected() {
+        $th = $this;
+        
+        $this -> loop -> cancelTimer($this -> timerPing);
+        $this -> emit('disconnect');
+        $this -> loop -> futureTick(function() use($th) {
+            $th -> connect();
+        });
+        $this -> log -> error('PDO disconnected');
     }
     
     public function handleMsg($msg, $callback) {

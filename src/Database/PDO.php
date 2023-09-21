@@ -9,6 +9,7 @@ class PDO {
     private $log;
     private $pdo;
     private $timerPing;
+    private $timerRetryConn;
     
     function __construct($loop, $log) {
         $this -> loop = $loop;
@@ -20,11 +21,19 @@ class PDO {
     public function start() {
         $th = $this;
         
-        $this -> log -> debug('Starting PDO');
-        
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
+        
+        $this -> log -> info('Started PDO');
+    }
+    
+    public function stop() {
+        $this -> emit('disconnect');
+        $this -> cancelTimer($this -> timerPing);
+        $this -> cancelTimer($this -> timerRetryConn);
+        $this -> pdo = null;
+        $this -> log -> info('Stopped PDO');
     }
     
     public function __call($method, $args) {
@@ -62,7 +71,7 @@ class PDO {
         }
         catch(\Exception $e) {
             $this -> log -> error('PDO connection failed: '.((string) $e);
-            $this -> loop -> addTimer(
+            $this -> timerRetryConn = $this -> loop -> addTimer(
                 1,
                 function() use($th) {
                     $th -> connect();
@@ -89,6 +98,7 @@ class PDO {
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
+        $this -> log -> error('PDO disconnected');
     }
 }
 ?>

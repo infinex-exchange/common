@@ -1,6 +1,6 @@
 <?php
 
-namespace Infinex;
+namespace Infinex\App;
 
 class Logger {
     const LL_ERROR = 0;
@@ -30,11 +30,22 @@ class Logger {
     
     const LEVEL_COL_SIZE = 8;
     
+    private $loop;
+    private $service;
+    private $hostname;
+    private $instance;
     private $level;
     private $dirty;
+    private $amqp;
+    private $timerSync;
     
-    function __construct() {
+    function __construct($loop, $service) {
         global $argv;
+        
+        $this -> loop = $loop;
+        $this -> service = $service;
+        $this -> hostname = gethostname();
+        $this -> instance = getmypid();
         
         if(isset($argv) && in_array('-d', $argv))
             $this -> level = Logger::LL_DEBUG;
@@ -50,29 +61,26 @@ class Logger {
         $this -> debug('Initialized logger');
     }
     
-    public function bind($loop, $amqp, $service) {
+    public function setAmqp($amqp) {
+        $this -> amqp = $amqp;
+    }
+    
+    public function start() {
         $th = $this;
-        $hostname = gethostname();
-        $instance = getmypid();
         
-        $loop -> addPeriodicTimer(5, function () use ($th, $amqp, $service, $hostname, $instance) {
-            while(count($th -> dirty) > 0) {
-                $entry = $th -> dirty[0];
-                $entry['service'] = $service;
-                $entry['hostname'] = $hostname;
-                $entry['instance'] = $instance;
-                try {
-                    $amqp -> pub('log', $entry);
-                    array_shift($th -> dirty);
-                }
-                catch(\Exception $e) {
-                    $th -> error('Failed to push remote logs');
-                    break;
-                }
+        $this -> timerSync = $this -> loop -> addPeriodicTimer(
+            5,
+            function() use($th) {
+                $th -> sync();
             }
-        });
+        );
         
         $this -> info('Started remote logging');
+    }
+    
+    public function stop() {
+        $this -> loop -> cancelTimer($this -> timerSync);
+        $this -> info('Stopped remote logging');
     }
     
     public function log($level, $message) {
@@ -117,6 +125,23 @@ class Logger {
     
     public function debug($message) {
         $this -> log(Logger::LL_DEBUG, $message);
+    }
+    
+    private function sync() {
+        while(count($this -> dirty) > 0) {
+            $entry = $this -> dirty[0];
+            $entry['service'] = $this -> service;
+            $entry['hostname'] = $this -> hostname;
+            $entry['instance'] = $this -> instance;
+            try {
+                $this -> amqp -> pub('log', $entry);
+                array_shift($this -> dirty);
+            }
+            catch(\Exception $e) {
+                $this -> error('Failed to push remote logs: '.((string) $e));
+                break;
+            }
+        }
     }
 }
 

@@ -2,7 +2,7 @@
 
 namespace Infinex\API;
 
-use Infinex\API\APIException;
+use Infinex\Exceptions\Error;
 use FastRoute\RouteCollector;
 use React\Promise\Promise;
 
