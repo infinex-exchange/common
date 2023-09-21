@@ -1,6 +1,6 @@
 <?php
 
-namespace Infinex\App;
+namespace Infinex;
 
 class Logger {
     const LL_ERROR = 0;
@@ -43,14 +43,14 @@ class Logger {
             $this -> level = LOG_LEVEL;
         
         else
-            $this -> level = Logger::LL_WARN;
+            $this -> level = Logger::LL_ERROR;
         
         $this -> dirty = array();
         
         $this -> debug('Initialized logger');
     }
     
-    public function setupRemote($loop, $amqp, $service) {
+    public function bind($loop, $amqp, $service) {
         $th = $this;
         $hostname = gethostname();
         $instance = getmypid();
