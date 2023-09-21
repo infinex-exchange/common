@@ -2,24 +2,40 @@
 
 namespace Infinex\Database;
 
+use Evenement\EventEmitter;
+
 class PDO {
     private $loop;
     private $log;
     private $pdo;
-    private $ping;
+    private $timerPing;
     
     function __construct($loop, $log) {
         $this -> loop = $loop;
         $this -> log = $log;
         
-        $this -> log -> debug('Initialized PDO connection');
+        $this -> log -> debug('Initialized PDO');
     }
     
     public function start() {
         $th = $this;
+        
+        $this -> log -> debug('Starting PDO');
+        
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
+    }
+    
+    public function __call($method, $args) {
+        try {
+            return call_user_func_array([$this -> pdo, $method], $args);
+        }
+        catch(\Exception $e) {
+            $this -> log -> error('PDO query failed: '.((string) $e));
+            $this -> disconnected();
+            throw $e;
+        }
     }
     
     private function connect() {
@@ -33,26 +49,19 @@ class PDO {
             $this -> pdo -> setAttribute(\PDO::ATTR_EMULATE_PREPARES, false);
             $this -> pdo -> setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
             
-            if($this -> ping === null) {
-                $this -> loop -> addPeriodicTimer(
-                    30,
-                    function() use($th) {
-                        try {
-                            $th -> log -> debug('Database ping');
-                            $th -> query('SELECT 1');
-                        }
-                        catch(Exception $e) {
-                            $this -> loop -> cancelTimer($this -> ping);
-                            $this -> ping = null;
-                        }
-                    }
-                );
-            }
+            $this -> timerPing = $this -> loop -> addPeriodicTimer(
+                30,
+                function() use($th) {
+                    $th -> ping();
+                }
+            );
+            
+            $this -> emit('connect');
             
             $this -> log -> info('Connected to database');
         }
         catch(\Exception $e) {
-            $this -> log -> error('PDO connection failed: '.$e -> getMessage());
+            $this -> log -> error('PDO connection failed: '.((string) $e);
             $this -> loop -> addTimer(
                 1,
                 function() use($th) {
@@ -62,15 +71,24 @@ class PDO {
         }
     }
     
-    public function __call($method, $args) {
+    private function ping() {
         try {
-            return call_user_func_array([$this -> pdo, $method], $args);
+            $this -> query('SELECT 1');
+            $this -> log -> debug('Database ping ok');
         }
         catch(\Exception $e) {
-            $this -> log -> error((string) $e);
-            $this -> start();
-            throw $e;
+            $this -> log -> error('Database ping failed');
         }
+    }
+    
+    private function disconnected() {
+        $th = $this;
+        
+        $this -> loop -> cancelTimer($this -> timerPing);
+        $this -> emit('disconnect');
+        $this -> loop -> futureTick(function() use($th) {
+            $th -> connect();
+        });
     }
 }
 ?>
