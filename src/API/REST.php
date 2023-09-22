@@ -3,42 +3,48 @@
 namespace Infinex\API;
 
 use Infinex\Exceptions\Error;
-use FastRoute\RouteCollector;
 use React\Promise\Promise;
 
-class API {
+class REST {
     private $log;
+    private $amqp;
     private $dispatcher;
-    private $rpcMethod;
+    private $routeCollector;
     
-    function __construct($log, $rpcMethod, $apis) {
+    function __construct($log, $amqp) {
+        $th = $this;
+        
         $this -> log = $log;
-        $this -> rpcMethod = $rpcMethod;
+        $this -> amqp = $amqp;
         
         $this -> dispatcher = \FastRoute\simpleDispatcher(
-            function(RouteCollector $rc) use($apis) {
-                if(!is_array($apis))
-                    $apis = [ $apis ];
-                foreach($apis as $api)
-                    $api -> initRoutes($rc);
+            function($routeCollector) use($th) {
+                $th -> routeCollector = $routeCollector;
             }
         );
         
-        $this -> log -> debug('Initialized API @'.$this -> rpcMethod);
+        $this -> log -> debug('Initialized REST API');
     }
     
-    public function bind($amqp) {
+    public function start() {
         $th = $this;
         
-        $amqp -> method(
-            $this -> rpcMethod,
+        $this -> amqp -> method(
+            'rest',
             function($body) use($th) {
                 return $th -> request($body);
             }
         );
+        
+        $this -> log -> info('Started REST API');
     }
     
-    public function request($body) {
+    public function stop() {
+        $this -> amqp -> unreg('rest');
+        $this -> log -> info('Stopped REST API');
+    }
+    
+    private function request($body) {
         $th = $this;
         $promise = new Promise(
             function($resolve, $reject) use($th, $body) {
@@ -55,20 +61,26 @@ class API {
                             if($intVal !== false)
                                 $routeInfo[2][$k] = $intVal;
                         }
-                        $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth'], $body['userAgent']));
+                        $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth']));
                 }
             }
         );
         
         return $promise -> then(
             function($response) {
+                if(isset($response['status']) && isset($response['body']))
+                    return [
+                        'status' => $response['status'],
+                        'body' => $response['body'] !== null ? $response['body'] : []
+                    ];
+                
                 return [
                     'status' => 200,
-                    'body' => $response
+                    'body' => $response !== null ? $response : []
                 ];
             }
         ) -> catch(
-            function(APIException $e) {
+            function(Error $e) {
                 return [
                     'status' => $e -> getCode(),
                     'body' => [

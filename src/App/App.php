@@ -16,6 +16,7 @@ class App {
         $this -> service = $service;
         
         $this -> loop = \React\EventLoop\Factory::create();
+        
         $this -> log = new Logger($this -> service, $this -> loop);
         
         $this -> amqp = new AMQP($this -> service, $this -> loop, $this -> log);
