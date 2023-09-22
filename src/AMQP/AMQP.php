@@ -4,22 +4,27 @@ namespace Infinex\AMQP;
 
 use Infinex\Exceptions\Error;
 use Evenement\EventEmitter;
-use
+use Bunny\Async\Client;
+use React\Async\await;
 use React\Promise\Promise;
 use React\Promise\Deferred;
 
 class AMQP extends EventEmitter {
+    private $service;
     private $loop;
     private $log;
     private $client;
     private $channel;
     private $callerId;
     private $requests;
+    private $timerRetryConn;
     
-    function __construct($loop, $log) {
+    function __construct($service, $loop, $log) {
+        $this -> service = $service;
         $this -> loop = $loop;
         $this -> log = $log;
         $this -> callerId = bin2hex(random_bytes(16));
+        $this -> requests = [];
         
         $this -> log -> debug('Initialized AMQP stack');
     }
@@ -34,22 +39,30 @@ class AMQP extends EventEmitter {
         $this -> log -> info('Started AMQP');
     }
     
-    public function stop() {
+    /*public function stop() {
         $this -> emit('disconnect');
         $this -> cancelTimer($this -> timerRetryConn);
         $this -> client -> disconnect();
         $this -> log -> info('Stopped AMQP');
-    }
+    }*/
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
         $headers['event'] = $event;
+        $headers['delivery_mode'] = $persistent ? 2 : 1;
         
-        $msg = new AMQPMessage(json_encode($body, JSON_UNESCAPED_SLASHES));
-        $msg -> set('application_headers', new AMQPTable($headers));
-        if($persistent)
-            $msg -> set('delivery_mode', AMQPMessage::DELIVERY_MODE_PERSISTENT);
+        $promise = $this -> channel -> publish(
+            json_encode($body, JSON_UNESCAPED_SLASHES),
+            $headers,
+            'infinex'
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Exception in AMQP publish: '.((string) $e));
+                $th -> disconnected();
+                throw $e;
+            }
+        );
         
-        $this -> channel -> basic_publish($msg, 'infinex');
+        await($promise);
     }
     
     public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
@@ -61,23 +74,40 @@ class AMQP extends EventEmitter {
         
         $headers['event'] = $event;
         
-        $this -> channel -> queue_declare($queue, false, true, false, !$persistent); // durable, auto delete
-        $this -> channel -> queue_bind($queue, 'infinex', '', false, new AMQPTable($headers));
-        $th = $this;
-        $this -> channel -> basic_consume(
+        $this -> channel -> queueDeclare(
             $queue,
-            '',
             false,
+            true, // durable
             false,
-            false,
-            false,
-            function($msg) use($th, $callback) {
-                $th -> handleMsg($msg, $callback);
+            !$persistent, // autoDelete
+        ) -> then(
+            function() use($th, $queue) {
+                return $th -> channel -> queueBind(
+                    $queue,
+                    'infinex',
+                    '',
+                    false,
+                    $headers
+                );
+            }
+        ) -> then(
+            function() use($th, $queue, $callback) {
+                return $th -> channel -> consume(
+                    function($msg) use($th, $callback) {
+                        $th -> handleMsg($msg, $callback);
+                    }
+                    $queue,
+                );
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Exception in AMQP consume: '.((string) $e));
+                $th -> disconnected();
             }
         );
     }
     
-    public function call($method, $params, $timeout = 3) {
+    public function call($service, $method, $params, $timeout = 3) {
         $requestId = bin2hex(random_bytes(8));
         $deferred = new Deferred();
         $th = $this;
@@ -87,7 +117,7 @@ class AMQP extends EventEmitter {
                 unset($th -> requests[$requestId]);
                 
                 $deferred -> reject(
-                    new RPCException('TIMEOUT', "The callee did not respond within $timeout seconds")
+                    new Error('TIMEOUT', 'Request timeout', 500)
                 );
                 
                 $th -> log -> error('Timeout for RPC request '.$requestId);
@@ -99,95 +129,105 @@ class AMQP extends EventEmitter {
         ];
         
         $headers = [
+            'service' => $service,
+            'method' => $method,
             'callerId' => $this -> callerId,
             'requestId' => $requestId
         ];
-        $this -> pub($method, $params, $headers, false);
+        $this -> pub('rpcRequest', $params, $headers, false);
         
         return $deferred -> promise();
     }
     
-    public function method($method, $callback) {
+    public function method($method, $callback, $modifier = false) {
         $th = $this;
         $this -> sub(
-            $method,
-            function($body, $headers) use($th, $callback) {
-                $th -> handleRpcRequest($body, $headers, $callback);
-            }
+            'rpcRequest',
+            function($body, $headers) use($th, $callback, $modifier) {
+                $th -> handleRpcRequest($body, $headers, $callback, $modifier);
+            },
+            'rpc_'.$this -> service.'_'.$method,
+            true,
+            [
+                'service' => $this -> service,
+                'method' => $method
+            ]
         );
-        $this -> log -> info('Registered RPC method '.$method);
+        $this -> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
     }
     
     public function modifier($method, $callback) {
-        $th = $this;
-        $this -> sub(
-            $method,
-            function($body, $headers) use($th, $callback) {
-                $th -> handleRpcRequest($body, $headers, $callback, true);
-            }
-        );
-        $this -> log -> info('Registered RPC modifier '.$method);
+        $this -> method($method, $callback, true);
     }
     
     private function connect() {
         $th = $this;
-        try {
-            $this -> log -> debug('Trying to establish AMQP connection');
-            
-            $this -> rmq = new AMQPStreamConnection(RMQ_HOST, RMQ_PORT, RMQ_USER, RMQ_PASS);
-            $this -> channel = $this -> rmq -> channel();
-            $this -> channel -> exchange_declare('infinex', AMQPExchangeType::HEADERS, false, true, false); // durable, no auto-delete
-            $this -> log -> info('Connected to AMQP');
-            
-            $this -> waitTimer = $this -> loop -> addPeriodicTimer(0.0001, function () use ($th) {
-                try {
-                    $th -> channel -> wait(null, true);
-                }
-                catch(\Exception $e) {
-                    $th -> loop -> cancelTimer($th -> waitTimer);
-                    $th -> emit('disconnect');
-                }
-            });
-            
-            $this -> sub(
-                'rpc_response',
-                function($body, $headers) use($th) {
-                    $th -> handleRpcResponse($body, $headers);
-                },
-                'rpc_resp_'.$this -> callerId,
-                false,
-                [ 'callerId' => $this -> callerId ]
-            );
-            $this -> log -> info('Subscribed to RPC response queue');
-            
-            $this -> emit('connect');
-        }
-        catch(\Exception $e) {
-            $this -> log -> error($e -> getMessage());
-            
-            $this -> loop -> addTimer(
-                1,
-                function() use($th) {
-                    $th -> connect();
-                }
-            );
-        }
+        
+        $this -> log -> debug('Trying to establish AMQP connection');
+        
+        $this -> client = new Client(
+            $this -> loop,
+            [
+                'host' => AMQP_HOST,
+                'port' => AMQP_PORT,
+                'vhost' => '/',
+                'user' => AMQP_USER,
+                'password' => AMQP_PASS
+            ]
+        );
+        
+        $this -> client -> connect() -> then(
+            function($client) {
+                return $client -> channel();
+            }
+        ) -> then(
+            function($channel) use($th) {
+                $th -> channel = $channel;
+                return $channel -> exchangeDeclare('infinex', 'headers', false, true);
+            }
+        ) -> then(
+            function() use($th) {
+                $th -> log -> info('Connected to AMQP');
+                
+                $th -> sub(
+                    'rpcResponse',
+                    function($body, $headers) use($th) {
+                        $th -> handleRpcResponse($body, $headers);
+                    },
+                    'rpc_resp_'.$th -> callerId,
+                    false,
+                    [ 'callerId' => $th -> callerId ]
+                );
+                $th -> log -> debug('Subscribed to RPC response queue');
+                
+                $th -> emit('connect');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('AMQP connection failed: '.((string) $e);
+                $th -> timerRetryConn = $th -> loop -> addTimer(
+                    1,
+                    function() use($th) {
+                        $th -> connect();
+                    }
+                );
+            }
+        );
     }
     
-    private function disconnected() {
+    /*private function disconnected() {
         $th = $this;
         
-        $this -> loop -> cancelTimer($this -> timerPing);
         $this -> emit('disconnect');
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
-        $this -> log -> error('PDO disconnected');
-    }
+        $this -> log -> error('AMQP disconnected');
+    }*/
     
-    public function handleMsg($msg, $callback) {
-        $body = json_decode($msg -> body, true);
-        $headers = $msg -> get('application_headers') -> getNativeData();
+    private function handleMsg($msg, $callback) {
+        $body = json_decode($msg -> content, true);
+        $headers = $msg -> headers;
                 
         $promise = new Promise(
             function($resolve, $reject) use($callback, $body, $headers) {
@@ -196,19 +236,24 @@ class AMQP extends EventEmitter {
         );
         
         $th = $this;
-        $promise -> then(
-            function() use($msg) {
-                $msg -> ack();
+        $promise -> catch(
+            function(\Exception $e) use($th, $msg) {
+                $th -> log -> error('Rejecting AMQP message: '.((string) $e));
+                return $th -> channel -> reject($msg);
+            }
+        ) -> then(
+            function() use($th, $msg) {
+                return $th -> channel -> ack($msg);
             }
         ) -> catch(
-            function(\Exception $e) use($msg, $th) {
-                $msg -> reject(true);
-                $th -> log -> error('Rejected AMQP message: '.((string) $e));
+            function($e) use($th) {
+                $th -> log -> error('Exception in AMQP ack/reject: '.((string) $e));
+                $th -> disconnected();
             }
         );
     }
     
-    public function handleRpcResponse($body, $headers) {
+    private function handleRpcResponse($body, $headers) {
         if(!isset($headers['requestId'])) {
             $this -> log -> error('Received RPC response without requestId');
             return;
@@ -223,13 +268,18 @@ class AMQP extends EventEmitter {
         
         if(array_key_exists('response', $body)) {
             $this -> requests[$headers['requestId']]['deferred'] -> resolve($body['response']);
-        } else if(isset($body['error']) && isset($body['error']['code']) && isset($body['error']['msg'])) {
+        } else if(
+            isset($body['error']) &&
+            isset($body['error']['status']) &&
+            isset($body['error']['code']) &&
+            isset($body['error']['msg'])
+        ) {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
-                new RPCException($body['error']['code'], $body['error']['message'])
+                new Error($body['error']['code'], $body['error']['message'], $body['error']['status'])
             );
         } else {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
-                new RPCException('INVALID_RESPONSE', 'Invalid response')
+                new Error('RESPONSE_CORRUPTED', 'RPC response corrupted')
             );
             
             $this -> log -> error('Received RPC response with invalid response/error structure for requestId '.$headers['requestId']);
@@ -238,11 +288,15 @@ class AMQP extends EventEmitter {
         unset($this -> requests[$headers['requestId']]);
     }
     
-    public function handleRpcRequest($body, $headers, $callback, $modifier = false) {
+    private function handleRpcRequest($body, $headers, $callback, $modifier = false) {
         if(!isset($headers['callerId']) || !isset($headers['requestId'])) {
             $this -> log -> error('Received RPC request without valid headers');
             return;
         }
+        $respHeaders = [
+            'callerId' => $header['callerId'],
+            'requestId' => $headers['requestId']
+        ];
         
         $promise = new Promise(
             function($resolve, $reject) use($callback, $body) {
@@ -252,55 +306,59 @@ class AMQP extends EventEmitter {
         
         $th = $this;
         return $promise -> then(
-            function($resp) use($th, $modifier, $headers) {
+            function($resp) use($th, $modifier, $respHeaders) {
                 if(!$modifier) {
                     $th -> pub(
-                        'rpc_response',
+                        'rpcResponse',
                         [
                             'response' => $resp
                         ],
-                        $headers,
+                        $respHeaders,
                         false
                     );
                 }
                 else if(isset($resp['response'])) {
                     $th -> pub(
-                        'rpc_response',
+                        'rpcResponse',
                         [
                             'response' => $resp['response']
                         ],
-                        $headers,
+                        $respHeaders,
                         false
                     );
                 }
-                else if(isset($resp['method']) && isset($resp['body'])) {
+                else if(isset($resp['service']) && isset($resp['method']) && isset($resp['body'])) {
+                    $respHeaders['service'] = $resp['service'];
+                    $respHeaders['method'] = $resp['method'];
+                    
                     $th -> pub(
-                        $resp['method'],
+                        'rpcRequest',
                         $resp['body'],
-                        $headers,
+                        $respHeaders,
                         false
                     );
                 }
                 else {
-                    throw new Exception('Invalid structure returned from modifier callback');
+                    throw new \Exception('Invalid structure returned from modifier callback');
                 }
             }
         ) -> catch(
-            function(RPCException $e) use($th, $headers) {
+            function(Error $e) use($th, $respHeaders) {
                 $th -> pub(
-                    'rpc_response',
+                    'rpcResponse',
                     [
                         'error' => [
                             'code' => $e -> getStrCode(),
-                            'msg' => $e -> getMessage()
+                            'msg' => $e -> getMessage(),
+                            'status' => $e -> getCode()
                         ]
                     ],
-                    $headers,
+                    $respHeaders,
                     false
                 );
             }
         ) -> catch(
-            function(\Exception $e) use($th) {
+            function($e) use($th) {
                 $th -> log -> error('Failed to handle RPC request: '.( (string) $e ));
                 throw $e;
             }

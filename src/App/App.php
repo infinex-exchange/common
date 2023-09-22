@@ -5,6 +5,7 @@ namespace Infinex\App;
 use Infinex\AMQP\AMQP;
 
 class App {
+    protected $service;
     protected $log;
     protected $loop;
     protected $amqp;
@@ -12,10 +13,12 @@ class App {
     function __construct($service) {
         $th = $this;
         
-        $this -> loop = \React\EventLoop\Factory::create();
-        $this -> log = new Logger($this -> loop, $service);
+        $this -> service = $service;
         
-        $this -> amqp = new AMQP($this -> loop, $this -> log);
+        $this -> loop = \React\EventLoop\Factory::create();
+        $this -> log = new Logger($this -> service, $this -> loop);
+        
+        $this -> amqp = new AMQP($this -> service, $this -> loop, $this -> log);
         $this -> log -> setAmqp($this -> amqp);
         $this -> amqp -> on('connect', function() use($th) {
             $th -> log -> start();

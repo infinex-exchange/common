@@ -30,8 +30,8 @@ class Logger {
     
     const LEVEL_COL_SIZE = 8;
     
-    private $loop;
     private $service;
+    private $loop;
     private $hostname;
     private $instance;
     private $level;
@@ -39,11 +39,11 @@ class Logger {
     private $amqp;
     private $timerSync;
     
-    function __construct($loop, $service) {
+    function __construct($service, $loop) {
         global $argv;
         
-        $this -> loop = $loop;
         $this -> service = $service;
+        $this -> loop = $loop;
         $this -> hostname = gethostname();
         $this -> instance = getmypid();
         
