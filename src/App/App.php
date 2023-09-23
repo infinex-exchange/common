@@ -16,6 +16,20 @@ class App {
         $this -> service = $service;
         
         $this -> loop = \React\EventLoop\Factory::create();
+        
+        $this -> log = new Logger($this -> service, $this -> loop);
+        
+        $this -> amqp = new AMQP($this -> service, $this -> loop, $this -> log);
+        $this -> log -> setAmqp($this -> amqp);
+    }
+    
+    public function run() {
+        $this -> loop -> run();
+    }
+    
+    public function start() {
+        $this -> log -> info('Starting app');
+        
         $this -> loop -> addSignal(SIGINT, function() use($th) {
             $th -> log -> warn('Received SIGINT');
             $th -> stop();
@@ -25,10 +39,6 @@ class App {
             $th -> stop();
         });
         
-        $this -> log = new Logger($this -> service, $this -> loop);
-        
-        $this -> amqp = new AMQP($this -> service, $this -> loop, $this -> log);
-        $this -> log -> setAmqp($this -> amqp);
         $this -> amqp -> on('connect', function() use($th) {
             $th -> log -> start();
         });
@@ -36,10 +46,6 @@ class App {
             $th -> log -> stop();
         });
         $this -> amqp -> start();
-    }
-    
-    public function run() {
-        $this -> loop -> run();
     }
     
     public function stop() {
