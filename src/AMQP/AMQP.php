@@ -18,6 +18,7 @@ class AMQP extends EventEmitter {
     private $callerId;
     private $requests;
     private $timerRetryConn;
+    private $connected;
     
     function __construct($service, $loop, $log) {
         $this -> service = $service;
@@ -25,6 +26,7 @@ class AMQP extends EventEmitter {
         $this -> log = $log;
         $this -> callerId = bin2hex(random_bytes(16));
         $this -> requests = [];
+        $this -> connected = false;
         
         $this -> log -> debug('Initialized AMQP stack');
     }
@@ -39,12 +41,17 @@ class AMQP extends EventEmitter {
         $this -> log -> info('Started AMQP');
     }
     
-    /*public function stop() {
-        $this -> emit('disconnect');
+    public function stop() {
         $this -> cancelTimer($this -> timerRetryConn);
-        $this -> client -> disconnect();
+        
+        if($this -> connected) {
+            await($this -> client -> disconnect());
+            $this -> emit('disconnect');
+            $this -> connected = false;
+        }
+            
         $this -> log -> info('Stopped AMQP');
-    }*/
+    }
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
         $headers['event'] = $event;
@@ -200,6 +207,7 @@ class AMQP extends EventEmitter {
                 );
                 $th -> log -> debug('Subscribed to RPC response queue');
                 
+                $th -> connected = false;
                 $th -> emit('connect');
             }
         ) -> catch(
@@ -215,15 +223,19 @@ class AMQP extends EventEmitter {
         );
     }
     
-    /*private function disconnected() {
+    private function disconnected() {
+        if(! $this -> connected)
+            return;
+        
         $th = $this;
         
+        $this -> connected = false;
         $this -> emit('disconnect');
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });
         $this -> log -> error('AMQP disconnected');
-    }*/
+    }
     
     private function handleMsg($msg, $callback) {
         $body = json_decode($msg -> content, true);

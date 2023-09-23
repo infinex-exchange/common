@@ -10,10 +10,12 @@ class PDO {
     private $pdo;
     private $timerPing;
     private $timerRetryConn;
+    private $connected;
     
     function __construct($loop, $log) {
         $this -> loop = $loop;
         $this -> log = $log;
+        $this -> connected = false;
         
         $this -> log -> debug('Initialized PDO');
     }
@@ -29,10 +31,14 @@ class PDO {
     }
     
     public function stop() {
-        $this -> emit('disconnect');
-        $this -> cancelTimer($this -> timerPing);
         $this -> cancelTimer($this -> timerRetryConn);
-        $this -> pdo = null;
+        
+        if($this -> connected) {
+            $this -> emit('disconnect');
+            $this -> cancelTimer($this -> timerPing);
+            $this -> pdo = null;
+        }
+        
         $this -> log -> info('Stopped PDO');
     }
     
@@ -65,6 +71,7 @@ class PDO {
                 }
             );
             
+            $this -> connected = true;
             $this -> emit('connect');
             
             $this -> log -> info('Connected to database');
@@ -91,8 +98,12 @@ class PDO {
     }
     
     private function disconnected() {
+        if(! $this -> connected)
+            return;
+        
         $th = $this;
         
+        $this -> connected = false;
         $this -> loop -> cancelTimer($this -> timerPing);
         $this -> emit('disconnect');
         $this -> loop -> futureTick(function() use($th) {
