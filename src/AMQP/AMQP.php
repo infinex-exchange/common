@@ -19,6 +19,7 @@ class AMQP extends EventEmitter {
     private $requests;
     private $timerRetryConn;
     private $connected;
+    private $mapQueueToCt;
     
     function __construct($service, $loop, $log) {
         $this -> service = $service;
@@ -81,7 +82,7 @@ class AMQP extends EventEmitter {
         
         $headers['event'] = $event;
         
-        $this -> channel -> queueDeclare(
+        $promise = $this -> channel -> queueDeclare(
             $queue,
             false,
             true, // durable
@@ -106,12 +107,25 @@ class AMQP extends EventEmitter {
                     $queue,
                 );
             }
+        ) -> then(
+            function($response) use($th, $queue) {
+                $th -> mapQueueToCt[$queue] = $response -> consumerTag;
+                var_dump($th -> mapQueueToCt);
+            }
         ) -> catch(
             function($e) use($th) {
                 $th -> log -> error('Exception in AMQP consume: '.((string) $e));
                 $th -> disconnected();
             }
         );
+        
+        await($promise);
+    }
+    
+    public function unsub($queue) {
+        $promise = $this -> channel -> cancel($this -> mapQueueToCt[$queue]);
+        await($promise);
+        unset($this -> mapQueueToCt[$event]);
     }
     
     public function call($service, $method, $params, $timeout = 3) {
@@ -167,6 +181,10 @@ class AMQP extends EventEmitter {
         $this -> method($method, $callback, true);
     }
     
+    public function unreg($method) {
+        $this -> unsub('rpc_'.$this -> service.'_'.$method);
+    }
+    
     private function connect() {
         $th = $this;
         
@@ -208,6 +226,7 @@ class AMQP extends EventEmitter {
                 $th -> log -> debug('Subscribed to RPC response queue');
                 
                 $th -> connected = false;
+                $th -> mapQueueToCt = [];
                 $th -> emit('connect');
             }
         ) -> catch(
