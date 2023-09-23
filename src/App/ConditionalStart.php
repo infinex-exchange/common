@@ -8,6 +8,7 @@ class ConditionalStart {
     private $act;
     private $states;
     private $actState;
+    private $started;
     
     function __construct($loop, $log, $deps, $act) {
         $this -> loop = $loop;
@@ -15,6 +16,7 @@ class ConditionalStart {
         $this -> act = $act;
         $this -> states = [];
         $this -> actState = false;
+        $this -> started = false;
         
         if(!is_array($deps))
             $deps = [ $deps ];
@@ -40,18 +42,30 @@ class ConditionalStart {
         $this -> log -> debug('Initialized conditional start: '.count($deps).' dependencies, '.count($act).' actuator');
     }
     
+    public function start() {
+        $this -> started = true;
+        $this -> stateUpdated();
+    }
+    
+    public function stop() {
+        $this -> started = false;
+        $this -> stateUpdated();
+    }
+    
     private function stateUpdated() {
-        if($this -> actState && in_array(false, $this -> states)) {
+        if(!$this -> started || ($this -> actState && in_array(false, $this -> states))) {
             $this -> actState = false;
-            $this -> log -> info('One of the dependencies is broken. Stopping actuators.');
-            $this -> act -> stop();
+            $this -> log -> info('Stopping actuators');
+            foreach($this -> act as $act)
+                $act -> stop();
             return;
         }
         
-        if(!$this -> actState && !in_array(false, $this -> states)) {
+        if($this -> started && !$this -> actState && !in_array(false, $this -> states))) {
             $this -> actState = true;
-            $this -> log -> info('All dependencies are healthy. Starting actuators.');
-            $this -> act -> start();
+            $this -> log -> info('Starting actuators');
+            foreach($this -> act as $act)
+                $act -> start();
             return;
         }
     }
