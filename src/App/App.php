@@ -11,6 +11,7 @@ class App {
     protected $amqp;
     
     function __construct($service) {
+        global $argv;
         $th = $this;
         
         $this -> service = $service;
@@ -25,9 +26,23 @@ class App {
             $th -> stop();
         });
         
-        $this -> log = new Logger($this -> service, $this -> loop);
+        $level = Logger::LL_ERROR;
+        if(in_array('-d', $argv))
+            $level = Logger::LL_DEBUG;
+        else if(defined('LOG_LEVEL'))
+            $level = LOG_LEVEL;
+        $this -> log = new Logger($this -> service, $this -> loop, $level);
         
-        $this -> amqp = new AMQP($this -> service, $this -> loop, $this -> log);
+        $this -> amqp = new AMQP(
+            $this -> service,
+            $this -> loop,
+            $this -> log,
+            AMQP_HOST,
+            AMQP_PORT,
+            AMQP_USER,
+            AMQP_PASS,
+            AMQP_VHOST
+        );
         $this -> log -> setAmqp($this -> amqp);
         $this -> amqp -> on('connect', function() use($th) {
             $th -> log -> start();

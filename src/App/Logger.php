@@ -39,23 +39,14 @@ class Logger {
     private $amqp;
     private $timerSync;
     
-    function __construct($service, $loop) {
+    function __construct($service, $loop, $level) {
         global $argv;
         
         $this -> service = $service;
         $this -> loop = $loop;
+        $this -> level = $level;
         $this -> hostname = gethostname();
         $this -> instance = getmypid();
-        
-        if(isset($argv) && in_array('-d', $argv))
-            $this -> level = Logger::LL_DEBUG;
-        
-        else if(defined('LOG_LEVEL'))
-            $this -> level = LOG_LEVEL;
-        
-        else
-            $this -> level = Logger::LL_ERROR;
-        
         $this -> dirty = array();
         
         $this -> debug('Initialized logger');

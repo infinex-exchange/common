@@ -7,14 +7,22 @@ use Evenement\EventEmitter;
 class PDO {
     private $loop;
     private $log;
+    private $host;
+    private $user;
+    private $pass;
+    private $name;
     private $pdo;
     private $timerPing;
     private $timerRetryConn;
     private $connected;
     
-    function __construct($loop, $log) {
+    function __construct($loop, $log, $host, $user, $pass, $name) {
         $this -> loop = $loop;
         $this -> log = $log;
+        $this -> host = $host;
+        $this -> user = $user;
+        $this -> pass = $pass;
+        $this -> name = $name;
         $this -> connected = false;
         
         $this -> log -> debug('Initialized PDO');
@@ -59,7 +67,11 @@ class PDO {
         $this -> log -> debug('Trying connect to database');
         
         try {
-            $this -> pdo = new \PDO('pgsql:host='.DB_HOST.';dbname='.DB_NAME, DB_USER, DB_PASS);
+            $this -> pdo = new \PDO(
+                'pgsql:host='.$this -> host.';dbname='.$this -> name,
+                $this -> user,
+                $this -> pass
+            );
             $this -> pdo -> setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             $this -> pdo -> setAttribute(\PDO::ATTR_EMULATE_PREPARES, false);
             $this -> pdo -> setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);

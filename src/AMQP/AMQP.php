@@ -13,6 +13,11 @@ class AMQP extends EventEmitter {
     private $service;
     private $loop;
     private $log;
+    private $host;
+    private $port;
+    private $user;
+    private $pass;
+    private $vhost;
     private $client;
     private $channel;
     private $callerId;
@@ -21,10 +26,24 @@ class AMQP extends EventEmitter {
     private $connected;
     private $mapQueueToCt;
     
-    function __construct($service, $loop, $log) {
+    function __construct(
+        $service,
+        $loop,
+        $log,
+        $host,
+        $port,
+        $user,
+        $pass,
+        $vhost
+    ) {
         $this -> service = $service;
         $this -> loop = $loop;
         $this -> log = $log;
+        $this -> host = $host;
+        $this -> port = $port;
+        $this -> user = $user;
+        $this -> pass = $pass;
+        $this -> vhost = $vhost;
         $this -> callerId = bin2hex(random_bytes(16));
         $this -> requests = [];
         $this -> connected = false;
@@ -193,11 +212,11 @@ class AMQP extends EventEmitter {
         $this -> client = new Client(
             $this -> loop,
             [
-                'host' => AMQP_HOST,
-                'port' => AMQP_PORT,
-                'vhost' => '/',
-                'user' => AMQP_USER,
-                'password' => AMQP_PASS
+                'host' => $this -> host,
+                'port' => $this -> port,
+                'vhost' => $this -> vhost,
+                'user' => $this -> user,
+                'password' => $this -> pass
             ]
         );
         
