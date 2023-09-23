@@ -16,6 +16,14 @@ class App {
         $this -> service = $service;
         
         $this -> loop = \React\EventLoop\Factory::create();
+        $this -> loop -> addSignal(SIGINT, function() use($th) {
+            $th -> log -> warn('Received SIGINT');
+            $th -> stop();
+        });
+        $this -> loop -> addSignal(SIGTERM, function() use($th) {
+            $th -> log -> warn('Received SIGTERM');
+            $th -> stop();
+        });
         
         $this -> log = new Logger($this -> service, $this -> loop);
         
@@ -32,6 +40,14 @@ class App {
     
     public function run() {
         $this -> loop -> run();
+    }
+    
+    public function stop() {
+        $this -> log -> info('Stopping app');
+        
+        $this -> log -> stop();
+        $this -> amqp -> stop();
+        $this -> loop -> stop();
     }
 }
 

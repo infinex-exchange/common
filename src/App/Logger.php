@@ -80,6 +80,7 @@ class Logger {
     
     public function stop() {
         $this -> loop -> cancelTimer($this -> timerSync);
+        $this -> sync();
         $this -> info('Stopped remote logging');
     }
     
