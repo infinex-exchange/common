@@ -93,6 +93,8 @@ class AMQP extends EventEmitter {
     }
     
     public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
+        $th = $this;
+        
         if($queue === null)
             $queue = $event;
         
