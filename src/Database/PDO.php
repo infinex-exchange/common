@@ -39,7 +39,10 @@ class PDO extends EventEmitter {
     }
     
     public function stop() {
-        $this -> loop -> cancelTimer($this -> timerRetryConn);
+        if($this -> timerRetryConn) {
+            $this -> loop -> cancelTimer($this -> timerRetryConn);
+            $this -> timerRetryConn = null;
+        }
         
         if($this -> connected) {
             $this -> emit('disconnect');
@@ -116,8 +119,9 @@ class PDO extends EventEmitter {
         $th = $this;
         
         $this -> connected = false;
-        $this -> loop -> cancelTimer($this -> timerPing);
         $this -> emit('disconnect');
+        $this -> loop -> cancelTimer($this -> timerPing);
+        $this -> timerPing = null;
         $this -> loop -> futureTick(function() use($th) {
             $th -> connect();
         });

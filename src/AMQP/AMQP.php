@@ -62,12 +62,15 @@ class AMQP extends EventEmitter {
     }
     
     public function stop() {
-        $this -> loop -> cancelTimer($this -> timerRetryConn);
+        if($this -> timerRetryConn) {
+            $this -> loop -> cancelTimer($this -> timerRetryConn);
+            $this -> timerRetryConn = null;
+        }
         
         if($this -> connected) {
-            await($this -> client -> disconnect());
-            $this -> emit('disconnect');
             $this -> connected = false;
+            $this -> emit('disconnect');
+            await($this -> client -> disconnect());
         }
             
         $this -> log -> info('Stopped AMQP');
