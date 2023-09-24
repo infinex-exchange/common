@@ -2,6 +2,8 @@
 
 namespace Infinex\App;
 
+use React\Promise;
+
 class Logger {
     const LL_ERROR = 0;
     const LL_WARN = 1;
@@ -71,8 +73,9 @@ class Logger {
     
     public function stop() {
         $this -> loop -> cancelTimer($this -> timerSync);
-        $this -> sync();
+        $promise = $this -> sync();
         $this -> info('Stopped remote logging');
+        return $promise;
     }
     
     public function log($level, $message) {

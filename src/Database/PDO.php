@@ -3,6 +3,7 @@
 namespace Infinex\Database;
 
 use Evenement\EventEmitter;
+use React\Promise;
 
 class PDO extends EventEmitter {
     private $loop;
@@ -52,6 +53,7 @@ class PDO extends EventEmitter {
         }
         
         $this -> log -> info('Stopped PDO');
+        return Promise\resolve(null);
     }
     
     public function __call($method, $args) {

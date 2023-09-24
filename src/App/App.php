@@ -57,16 +57,21 @@ class App {
     }
     
     public function start() {
-        $this -> log -> info('Starting app');
         $this -> amqp -> start();
     }
     
     public function stop() {
-        $this -> log -> info('Stopping app');
+        $th = $this;
         
-        $this -> log -> stop();
-        $this -> amqp -> stop();
-        $this -> loop -> stop();
+        $this -> log -> stop() -> then(
+            function() use($th) {
+                return $th -> amqp -> stop()
+            }
+        ) -> then(
+            function() use($th) {
+                $this -> loop -> stop();
+            )
+        );
     }
 }
 

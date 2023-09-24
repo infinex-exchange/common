@@ -40,8 +40,9 @@ class REST {
     }
     
     public function stop() {
-        $this -> amqp -> unreg('rest');
+        $promise = $this -> amqp -> unreg('rest');
         $this -> log -> info('Stopped REST API');
+        return $promise;
     }
     
     private function request($body) {

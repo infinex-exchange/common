@@ -2,6 +2,8 @@
 
 namespace Infinex\App;
 
+use React\Promise;
+
 class ConditionalStart {
     private $loop;
     private $log;
@@ -49,16 +51,17 @@ class ConditionalStart {
     
     public function stop() {
         $this -> started = false;
-        $this -> stateUpdated();
+        return $this -> stateUpdated();
     }
     
     private function stateUpdated() {
         if($this -> actState && (!$this -> started || in_array(false, $this -> states))) {
             $this -> actState = false;
             $this -> log -> info('Stopping actuators');
+            $promises = [];
             foreach($this -> act as $act)
-                $act -> stop();
-            return;
+                $promises[] = $act -> stop();
+            return Promise\all($promises);
         }
         
         if($this -> started && !$this -> actState && !in_array(false, $this -> states)) {
@@ -66,7 +69,7 @@ class ConditionalStart {
             $this -> log -> info('Starting actuators');
             foreach($this -> act as $act)
                 $act -> start();
-            return;
+            return null;
         }
     }
 }

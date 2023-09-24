@@ -6,7 +6,6 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "react/async": "^4.0",
         "react/promise": "^3.0",
         "evenement/evenement": "^3.0",
         "infinex-exchange/bunny": "dev-master",
