@@ -122,8 +122,8 @@ class AMQP extends EventEmitter {
                 return $th -> channel -> consume(
                     function($msg) use($th, $callback) {
                         $th -> handleMsg($msg, $callback);
-                    }
-                    $queue,
+                    },
+                    $queue
                 );
             }
         ) -> then(
