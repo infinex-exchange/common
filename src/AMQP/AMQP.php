@@ -5,7 +5,7 @@ namespace Infinex\AMQP;
 use Infinex\Exceptions\Error;
 use Evenement\EventEmitter;
 use Bunny\Async\Client;
-use React\Async\await;
+use function React\Async\await;
 use React\Promise\Promise;
 use React\Promise\Deferred;
 
