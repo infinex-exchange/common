@@ -86,9 +86,7 @@ class AMQP extends EventEmitter {
             json_encode($body, JSON_UNESCAPED_SLASHES),
             $headers,
             'infinex'
-        );
-        
-        $promise -> catch(
+        ) -> catch(
             function($e) use($th) {
                 $th -> log -> error('Exception in AMQP publish: '.((string) $e));
                 $th -> disconnected();
