@@ -110,7 +110,7 @@ class AMQP extends EventEmitter {
             false,
             !$persistent, // autoDelete
         ) -> then(
-            function() use($th, $queue) {
+            function() use($th, $queue, $headers) {
                 return $th -> channel -> queueBind(
                     $queue,
                     'infinex',
