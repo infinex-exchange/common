@@ -3,14 +3,8 @@
     "description": "Infinex common library",
     "type": "library",
     "license": "Apache-2.0",
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/infinex-exchange/bunny"
-        }
-    ],
     "require": {
         "react/async": "^4.0",
         "react/promise": "^3.0",
