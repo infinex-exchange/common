@@ -3,8 +3,6 @@
     "description": "Infinex common library",
     "type": "library",
     "license": "Apache-2.0",
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "repositories": [
         {
             "type": "vcs",
