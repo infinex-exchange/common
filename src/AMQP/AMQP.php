@@ -83,7 +83,7 @@ class AMQP extends EventEmitter {
         $headers['event'] = $event;
         $headers['delivery_mode'] = $persistent ? 2 : 1;
         
-        $promise = $this -> channel -> publish(
+        return $this -> channel -> publish(
             json_encode($body, JSON_UNESCAPED_SLASHES),
             $headers,
             'infinex'
@@ -94,8 +94,6 @@ class AMQP extends EventEmitter {
                 throw $e;
             }
         );
-        
-        await($promise);
     }
     
     public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
@@ -109,7 +107,7 @@ class AMQP extends EventEmitter {
         
         $headers['event'] = $event;
         
-        $promise = $this -> channel -> queueDeclare(
+        return $this -> channel -> queueDeclare(
             $queue,
             false,
             true, // durable
@@ -145,19 +143,27 @@ class AMQP extends EventEmitter {
                 $th -> disconnected();
             }
         );
-        
-        await($promise);
     }
     
     public function unsub($queue) {
-        $promise = $this -> channel -> cancel($this -> mapQueueToCt[$queue]);
-        await($promise);
-        unset($this -> mapQueueToCt[$event]);
+        $th = $this;
+        
+        return $this -> channel -> cancel($this -> mapQueueToCt[$queue]) -> then(
+            function() use($th, $queue) {
+                unset($this -> mapQueueToCt[$queue]);
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Exception in AMQP cancel: '.((string) $e));
+                $th -> disconnected();
+                throw $e;
+            }
+        );
     }
     
     public function call($service, $method, $params, $timeout = 3) {
         $requestId = bin2hex(random_bytes(8));
-        $deferred = new Deferred();
+        $deferred = new Promise\Deferred();
         $th = $this;
         $timeout = $this -> loop -> addTimer(
             $timeout,
@@ -182,14 +188,16 @@ class AMQP extends EventEmitter {
             'callerId' => $this -> callerId,
             'requestId' => $requestId
         ];
-        $this -> pub('rpcRequest', $params, $headers, false);
-        
-        return $deferred -> promise();
+        return $this -> pub('rpcRequest', $params, $headers, false) -> then(
+            function() use($deferred) {
+                return $deferred -> promise();
+            }
+        );
     }
     
     public function method($method, $callback, $modifier = false) {
         $th = $this;
-        $this -> sub(
+        $return $this -> sub(
             'rpcRequest',
             function($body, $headers) use($th, $callback, $modifier) {
                 $th -> handleRpcRequest($body, $headers, $callback, $modifier);
@@ -200,16 +208,24 @@ class AMQP extends EventEmitter {
                 'service' => $this -> service,
                 'method' => $method
             ]
+        ) -> then(
+            function() use($th) {
+                $th-> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
+            }
         );
-        $this -> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
     }
     
     public function modifier($method, $callback) {
-        $this -> method($method, $callback, true);
+        return $this -> method($method, $callback, true);
     }
     
     public function unreg($method) {
-        $this -> unsub('rpc_'.$this -> service.'_'.$method);
+        $th = $this;
+        return $this -> unsub('rpc_'.$this -> service.'_'.$method) -> then(
+            function() use($th, $method) {
+                $th-> log -> info('Unregistered RPC '.$method);
+            }
+        );
     }
     
     private function connect() {
@@ -287,7 +303,7 @@ class AMQP extends EventEmitter {
         $body = json_decode($msg -> content, true);
         $headers = $msg -> headers;
                 
-        $promise = new Promise(
+        $promise = new Promise\Promise(
             function($resolve, $reject) use($callback, $body, $headers) {
                 $resolve($callback($body, $headers));
             }
@@ -356,7 +372,7 @@ class AMQP extends EventEmitter {
             'requestId' => $headers['requestId']
         ];
         
-        $promise = new Promise(
+        $promise = new Promise\Promise(
             function($resolve, $reject) use($callback, $body) {
                 $resolve($callback($body));
             }
