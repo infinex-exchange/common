@@ -45,6 +45,7 @@ class PDO extends EventEmitter {
         }
         
         if($this -> connected) {
+            $this -> connected = false;
             $this -> emit('disconnect');
             $this -> loop -> cancelTimer($this -> timerPing);
             $this -> pdo = null;
