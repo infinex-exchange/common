@@ -4,7 +4,7 @@ namespace Infinex\Database;
 
 use Evenement\EventEmitter;
 
-class PDO {
+class PDO extends EventEmitter {
     private $loop;
     private $log;
     private $host;
