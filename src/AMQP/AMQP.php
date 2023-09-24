@@ -84,8 +84,8 @@ class AMQP extends EventEmitter {
             $headers,
             'infinex'
         ) -> then(
-            function($x) {
-                var_dump($x);
+            function($x) use($tx) {
+                $th -> log -> warn($x);
                 return $x;
             }
         ) -> catch(
@@ -95,10 +95,6 @@ class AMQP extends EventEmitter {
                 throw $e;
             }
         );
-        
-        var_dump($promise);
-        
-        await($promise);
     }
     
     public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
