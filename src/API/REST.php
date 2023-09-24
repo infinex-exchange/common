@@ -3,7 +3,7 @@
 namespace Infinex\API;
 
 use Infinex\Exceptions\Error;
-use React\Promise\Promise;
+use React\Promise;
 
 class REST {
     private $log;
@@ -47,7 +47,7 @@ class REST {
     
     private function request($body) {
         $th = $this;
-        $promise = new Promise(
+        $promise = new Promise\Promise(
             function($resolve, $reject) use($th, $body) {
                 $routeInfo = $this -> dispatcher -> dispatch($body['method'], $body['path']);
                 

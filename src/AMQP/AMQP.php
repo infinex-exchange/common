@@ -5,9 +5,7 @@ namespace Infinex\AMQP;
 use Infinex\Exceptions\Error;
 use Evenement\EventEmitter;
 use Bunny\Async\Client;
-use function React\Async\await;
-use React\Promise\Promise;
-use React\Promise\Deferred;
+use React\Promise;
 
 class AMQP extends EventEmitter {
     private $service;
@@ -67,13 +65,16 @@ class AMQP extends EventEmitter {
             $this -> timerRetryConn = null;
         }
         
+        $promise = null;
+        
         if($this -> connected) {
             $this -> connected = false;
             $this -> emit('disconnect');
-            await($this -> client -> disconnect());
+            $promise = $this -> client -> disconnect();
         }
             
         $this -> log -> info('Stopped AMQP');
+        return $promise ? $promise : Promise\resolve(null);
     }
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
