@@ -61,7 +61,7 @@ class ConditionalStart {
             return;
         }
         
-        if($this -> started && !$this -> actState && !in_array(false, $this -> states))) {
+        if($this -> started && !$this -> actState && !in_array(false, $this -> states)) {
             $this -> actState = true;
             $this -> log -> info('Starting actuators');
             foreach($this -> act as $act)
