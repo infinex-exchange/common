@@ -74,6 +74,8 @@ class AMQP extends EventEmitter {
     }
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
+        $th = $this;
+        
         $headers['event'] = $event;
         $headers['delivery_mode'] = $persistent ? 2 : 1;
         
@@ -88,6 +90,8 @@ class AMQP extends EventEmitter {
                 throw $e;
             }
         );
+        
+        var_dump($promise);
         
         await($promise);
     }
