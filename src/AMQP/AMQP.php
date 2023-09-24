@@ -84,7 +84,7 @@ class AMQP extends EventEmitter {
             $headers,
             'infinex'
         ) -> then(
-            function($x) use($tx) {
+            function($x) use($th) {
                 $th -> log -> warn($x);
                 return $x;
             }
