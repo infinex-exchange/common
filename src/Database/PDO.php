@@ -89,7 +89,7 @@ class PDO {
             $this -> log -> info('Connected to database');
         }
         catch(\Exception $e) {
-            $this -> log -> error('PDO connection failed: '.((string) $e);
+            $this -> log -> error('PDO connection failed: '.((string) $e));
             $this -> timerRetryConn = $this -> loop -> addTimer(
                 1,
                 function() use($th) {
