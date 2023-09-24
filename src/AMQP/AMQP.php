@@ -60,6 +60,8 @@ class AMQP extends EventEmitter {
     }
     
     public function stop() {
+        $th = $this;
+        
         if($this -> timerRetryConn) {
             $this -> loop -> cancelTimer($this -> timerRetryConn);
             $this -> timerRetryConn = null;
@@ -72,9 +74,14 @@ class AMQP extends EventEmitter {
             $this -> emit('disconnect');
             $promise = $this -> client -> disconnect();
         }
-            
-        $this -> log -> info('Stopped AMQP');
-        return $promise ? $promise : Promise\resolve(null);
+        else
+            $promise = Promise\resolve(null);
+        
+        return $promise -> then(
+            function() use($th) {
+                $th -> log -> info('Stopped AMQP');
+            }
+        );
     }
     
     public function pub($event, $body = [], $headers = [], $persistent = true) {
