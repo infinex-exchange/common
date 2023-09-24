@@ -53,7 +53,7 @@ class ConditionalStart {
     }
     
     private function stateUpdated() {
-        if(!$this -> started || ($this -> actState && in_array(false, $this -> states))) {
+        if($this -> actState && (!$this -> started || in_array(false, $this -> states))) {
             $this -> actState = false;
             $this -> log -> info('Stopping actuators');
             foreach($this -> act as $act)
