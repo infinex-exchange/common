@@ -16,7 +16,7 @@ class App {
         
         $this -> service = $service;
         
-        $this -> loop = \React\EventLoop\Factory::create();
+        $this -> loop = \React\EventLoop\Loop::get();
         $this -> loop -> addSignal(SIGINT, function() use($th) {
             $th -> log -> warn('Received SIGINT');
             $th -> stop();
