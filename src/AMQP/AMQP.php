@@ -356,7 +356,7 @@ class AMQP {
             return;
         }
         $respHeaders = [
-            'callerId' => $header['callerId'],
+            'callerId' => $headers['callerId'],
             'requestId' => $headers['requestId']
         ];
         
