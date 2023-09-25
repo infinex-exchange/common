@@ -211,7 +211,7 @@ class AMQP {
                 'method' => $method
             ]
         ) -> then(
-            function() use($th, $modifier) {
+            function() use($th, $modifier, $method) {
                 $th -> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
             }
         ) -> catch(
