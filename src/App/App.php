@@ -65,7 +65,7 @@ class App {
         
         $this -> log -> stop() -> then(
             function() use($th) {
-                return $th -> amqp -> stop()
+                return $th -> amqp -> stop();
             }
         ) -> then(
             function() use($th) {
