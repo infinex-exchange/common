@@ -13,17 +13,17 @@ class ConditionalStart {
     private $started;
     
     function __construct($loop, $log, $deps, $act) {
+        if(!is_array($deps))
+            $deps = [ $deps ];
+        if(!is_array($act))
+            $act = [ $act ];
+        
         $this -> loop = $loop;
         $this -> log = $log;
         $this -> act = $act;
         $this -> states = [];
         $this -> actState = false;
         $this -> started = false;
-        
-        if(!is_array($deps))
-            $deps = [ $deps ];
-        if(!is_array($act))
-            $act = [ $act ];
         
         $th = $this;
         
