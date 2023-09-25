@@ -337,7 +337,7 @@ class AMQP {
             isset($body['error']['msg'])
         ) {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
-                new Error($body['error']['code'], $body['error']['message'], $body['error']['status'])
+                new Error($body['error']['code'], $body['error']['msg'], $body['error']['status'])
             );
         } else {
             $this -> requests[$headers['requestId']]['deferred'] -> reject(
