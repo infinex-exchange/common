@@ -253,15 +253,18 @@ class AMQP extends EventEmitter {
         
         $this -> client -> connect() -> then(
             function($client) {
+                echo "1\n";
                 return $client -> channel();
             }
         ) -> then(
             function($channel) use($th) {
+                echo "2\n";
                 $th -> channel = $channel;
                 return $channel -> exchangeDeclare('infinex', 'headers', false, true);
             }
         ) -> then(
             function() use($th) {
+                echo "3\n";
                 $th -> log -> info('Connected to AMQP');
                 
                 $th -> sub(
