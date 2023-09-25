@@ -1,6 +1,6 @@
 <?php
 
-namespace Infinex;
+namespace Infinex\Exceptions;
 
 class Error extends \Exception {
     private $strCode;
