@@ -96,18 +96,6 @@ class REST {
                     'body' => $response !== null ? $response : []
                 ];
             }
-        ) -> catch(
-            function(Error $e) {
-                return [
-                    'status' => $e -> getCode(),
-                    'body' => [
-                        'error' => [
-                            'code' => $e -> getStrCode(),
-                            'msg' => $e -> getMessage()
-                        ]
-                    ]
-                ];
-            }
         );
     }
 }
