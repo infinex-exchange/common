@@ -3,6 +3,8 @@
 namespace Infinex\App;
 
 use React\Promise;
+use function React\Async\async;
+use function React\Async\await;
 
 class Logger {
     const LL_ERROR = 0;
@@ -72,10 +74,15 @@ class Logger {
     }
     
     public function stop() {
+        $th = $this;
+        
         $this -> loop -> cancelTimer($this -> timerSync);
-        $promise = $this -> sync();
-        $this -> info('Stopped remote logging');
-        return $promise;
+        
+        return $this -> sync() -> then(
+            function() use($th) {
+                $th -> info('Stopped remote logging');
+            }
+        );
     }
     
     public function log($level, $message) {
@@ -123,20 +130,26 @@ class Logger {
     }
     
     private function sync() {
-        while(count($this -> dirty) > 0) {
-            $entry = $this -> dirty[0];
-            $entry['service'] = $this -> service;
-            $entry['hostname'] = $this -> hostname;
-            $entry['instance'] = $this -> instance;
-            try {
-                $this -> amqp -> pub('log', $entry);
-                array_shift($this -> dirty);
+        $th = $this;
+        
+        return async(
+            function() use($th) {
+                while(count($this -> dirty) > 0) {
+                    $entry = $th -> dirty[0];
+                    $entry['service'] = $th -> service;
+                    $entry['hostname'] = $th -> hostname;
+                    $entry['instance'] = $th -> instance;
+                    try {
+                        await($th -> amqp -> pub('log', $entry));
+                        array_shift($th -> dirty);
+                    }
+                    catch(\Exception $e) {
+                        $th -> error('Failed to push remote logs: '.((string) $e));
+                        break;
+                    }
+                }
             }
-            catch(\Exception $e) {
-                $this -> error('Failed to push remote logs: '.((string) $e));
-                break;
-            }
-        }
+        );
     }
 }
 
