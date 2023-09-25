@@ -61,6 +61,10 @@ class REST {
         );
     }
     
+    public function __call($method, $args) {
+        return call_user_func_array([$this -> routeCollector, $method], $args);
+    }
+    
     private function request($body) {
         $th = $this;
         $promise = new Promise\Promise(
