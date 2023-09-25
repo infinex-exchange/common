@@ -253,18 +253,15 @@ class AMQP extends EventEmitter {
         
         $this -> client -> connect() -> then(
             function($client) {
-                echo "1\n";
                 return $client -> channel();
             }
         ) -> then(
             function($channel) use($th) {
-                echo "2\n";
                 $th -> channel = $channel;
                 return $channel -> exchangeDeclare('infinex', 'headers', false, true);
             }
         ) -> then(
             function() use($th) {
-                echo "3\n";
                 $th -> log -> info('Connected to AMQP');
                 
                 $th -> sub(
@@ -283,7 +280,7 @@ class AMQP extends EventEmitter {
                 $th -> emit('connect');
             }
         ) -> catch(
-            function(\Exception $e) use($th) {
+            function($e) use($th) {
                 $th -> log -> error('AMQP connection failed: '.((string) $e));
                 $th -> timerRetryConn = $th -> loop -> addTimer(
                     1,
