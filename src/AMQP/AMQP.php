@@ -204,7 +204,7 @@ class AMQP extends EventEmitter {
     
     public function method($method, $callback, $modifier = false) {
         $th = $this;
-        $return $this -> sub(
+        return $this -> sub(
             'rpcRequest',
             function($body, $headers) use($th, $callback, $modifier) {
                 $th -> handleRpcRequest($body, $headers, $callback, $modifier);
