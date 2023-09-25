@@ -69,8 +69,9 @@ class ConditionalStart {
             $this -> log -> info('Starting actuators');
             foreach($this -> act as $act)
                 $act -> start();
-            return null;
         }
+        
+        return Promise\resolve(null);
     }
 }
 
