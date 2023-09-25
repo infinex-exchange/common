@@ -2,57 +2,56 @@
 
 namespace Infinex\Database;
 
-use Evenement\EventEmitter;
 use React\Promise;
 
-class PDO extends EventEmitter {
+class PDO {
     private $loop;
     private $log;
+    
     private $host;
     private $user;
     private $pass;
     private $name;
+    
+    private $startDeferred;
     private $pdo;
     private $timerPing;
     private $timerRetryConn;
-    private $connected;
     
     function __construct($loop, $log, $host, $user, $pass, $name) {
         $this -> loop = $loop;
         $this -> log = $log;
+        
         $this -> host = $host;
         $this -> user = $user;
         $this -> pass = $pass;
         $this -> name = $name;
-        $this -> connected = false;
         
-        $this -> log -> debug('Initialized PDO');
+        $this -> log -> debug('Initialized PDO client');
     }
     
     public function start() {
-        $th = $this;
+        if($this -> startDeferred !== null)
+            return $this -> startDeferred -> promise();
         
-        $this -> loop -> futureTick(function() use($th) {
-            $th -> connect();
-        });
-        
-        $this -> log -> info('Started PDO');
+        $this -> startDeferred = new Promise\Deferred();
+        $this -> connect();
+        return $this -> startDeferred -> promise();
     }
     
     public function stop() {
-        if($this -> timerRetryConn) {
+        $th = $this;
+        
+        if($this -> timerRetryConn !== null) {
             $this -> loop -> cancelTimer($this -> timerRetryConn);
-            $this -> timerRetryConn = null;
+            return Promise\resolve(null);
         }
         
-        if($this -> connected) {
-            $this -> connected = false;
-            $this -> emit('disconnect');
-            $this -> loop -> cancelTimer($this -> timerPing);
-            $this -> pdo = null;
-        }
+        $this -> loop -> cancelTimer($this -> timerPing);
+        $this -> pdo = null;
         
-        $this -> log -> info('Stopped PDO');
+        $this -> log -> info('Stopped PDO client');
+        
         return Promise\resolve(null);
     }
     
@@ -61,8 +60,7 @@ class PDO extends EventEmitter {
             return call_user_func_array([$this -> pdo, $method], $args);
         }
         catch(\Exception $e) {
-            $this -> log -> error('PDO query failed: '.((string) $e));
-            $this -> disconnected();
+            $this -> log -> error('PDO error: '.((string) $e));
             throw $e;
         }
     }
@@ -71,6 +69,8 @@ class PDO extends EventEmitter {
         $th = $this;
         
         $this -> log -> debug('Trying connect to database');
+        
+        $this -> timerRetryConn = null;
         
         try {
             $this -> pdo = new \PDO(
@@ -89,10 +89,9 @@ class PDO extends EventEmitter {
                 }
             );
             
-            $this -> connected = true;
-            $this -> emit('connect');
-            
             $this -> log -> info('Connected to database');
+            
+            $this -> startDeferred -> resolve(null);
         }
         catch(\Exception $e) {
             $this -> log -> error('PDO connection failed: '.((string) $e));
@@ -108,27 +107,11 @@ class PDO extends EventEmitter {
     private function ping() {
         try {
             $this -> query('SELECT 1');
-            $this -> log -> debug('Database ping ok');
+            $this -> log -> debug('Database ping OK');
         }
         catch(\Exception $e) {
             $this -> log -> error('Database ping failed');
         }
-    }
-    
-    private function disconnected() {
-        if(! $this -> connected)
-            return;
-        
-        $th = $this;
-        
-        $this -> connected = false;
-        $this -> emit('disconnect');
-        $this -> loop -> cancelTimer($this -> timerPing);
-        $this -> timerPing = null;
-        $this -> loop -> futureTick(function() use($th) {
-            $th -> connect();
-        });
-        $this -> log -> error('PDO disconnected');
     }
 }
 ?>

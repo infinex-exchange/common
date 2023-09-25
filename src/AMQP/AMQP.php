@@ -3,26 +3,21 @@
 namespace Infinex\AMQP;
 
 use Infinex\Exceptions\Error;
-use Evenement\EventEmitter;
 use Bunny\Async\Client;
 use React\Promise;
 
-class AMQP extends EventEmitter {
+class AMQP {
     private $service;
     private $loop;
     private $log;
-    private $host;
-    private $port;
-    private $user;
-    private $pass;
-    private $vhost;
-    private $client;
-    private $channel;
+    
     private $callerId;
     private $requests;
-    private $timerRetryConn;
-    private $connected;
     private $mapQueueToCt;
+    private $startDeferred;
+    private $client;
+    private $channel;
+    private $timerRetryConn;
     
     function __construct(
         $service,
@@ -37,49 +32,49 @@ class AMQP extends EventEmitter {
         $this -> service = $service;
         $this -> loop = $loop;
         $this -> log = $log;
-        $this -> host = $host;
-        $this -> port = $port;
-        $this -> user = $user;
-        $this -> pass = $pass;
-        $this -> vhost = $vhost;
+        
         $this -> callerId = bin2hex(random_bytes(16));
         $this -> requests = [];
-        $this -> connected = false;
+        $this -> mapQueueToCt = [];
         
-        $this -> log -> debug('Initialized AMQP stack');
+        $this -> client = new Client(
+            $this -> loop,
+            [
+                'host' => $this -> host,
+                'port' => $this -> port,
+                'vhost' => $this -> vhost,
+                'user' => $this -> user,
+                'password' => $this -> pass
+            ]
+        );
+        
+        $this -> log -> debug('Initialized AMQP client');
     }
     
     public function start() {
-        $th = $this;
+        if($this -> startDeferred !== null)
+            return $this -> startDeferred -> promise();
         
-        $this -> loop -> futureTick(function() use($th) {
-            $th -> connect();
-        });
-        
-        $this -> log -> info('Started AMQP');
+        $this -> startDeferred = new Promise\Deferred();
+        $this -> connect();
+        return $this -> startDeferred -> promise();
     }
     
     public function stop() {
         $th = $this;
         
-        if($this -> timerRetryConn) {
+        if($this -> timerRetryConn !== null) {
             $this -> loop -> cancelTimer($this -> timerRetryConn);
-            $this -> timerRetryConn = null;
+            return Promise\resolve(null);
         }
         
-        $promise = null;
-        
-        if($this -> connected) {
-            $this -> connected = false;
-            $this -> emit('disconnect');
-            $promise = $this -> client -> disconnect();
-        }
-        else
-            $promise = Promise\resolve(null);
-        
-        return $promise -> then(
+        return $this -> client -> disconnect() -> then(
             function() use($th) {
-                $th -> log -> info('Stopped AMQP');
+                $th -> log -> info('Stopped AMQP client');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed stopping AMQP client: '.((string) $e));
             }
         );
     }
@@ -97,7 +92,6 @@ class AMQP extends EventEmitter {
         ) -> catch(
             function($e) use($th) {
                 $th -> log -> error('Exception in AMQP publish: '.((string) $e));
-                $th -> disconnected();
                 throw $e;
             }
         );
@@ -140,14 +134,14 @@ class AMQP extends EventEmitter {
                 );
             }
         ) -> then(
-            function($response) use($th, $queue) {
+            function($response) use($th, $queue, $event) {
                 $th -> mapQueueToCt[$queue] = $response -> consumerTag;
-                var_dump($th -> mapQueueToCt);
+                $th -> log -> debug("Subscribed to $event -> $queue");
             }
         ) -> catch(
             function($e) use($th) {
-                $th -> log -> error('Exception in AMQP consume: '.((string) $e));
-                $th -> disconnected();
+                $th -> log -> error('Exception in AMQP subscribe: '.((string) $e));
+                throw $e;
             }
         );
     }
@@ -158,11 +152,11 @@ class AMQP extends EventEmitter {
         return $this -> channel -> cancel($this -> mapQueueToCt[$queue]) -> then(
             function() use($th, $queue) {
                 unset($this -> mapQueueToCt[$queue]);
+                $th -> log -> debug("Unsubscribed from $queue");
             }
         ) -> catch(
             function($e) use($th) {
-                $th -> log -> error('Exception in AMQP cancel: '.((string) $e));
-                $th -> disconnected();
+                $th -> log -> error('Exception in AMQP unsubscribe: '.((string) $e));
                 throw $e;
             }
         );
@@ -204,6 +198,7 @@ class AMQP extends EventEmitter {
     
     public function method($method, $callback, $modifier = false) {
         $th = $this;
+        
         return $this -> sub(
             'rpcRequest',
             function($body, $headers) use($th, $callback, $modifier) {
@@ -216,8 +211,13 @@ class AMQP extends EventEmitter {
                 'method' => $method
             ]
         ) -> then(
-            function() use($th) {
-                $th-> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
+            function() use($th, $modifier) {
+                $th -> log -> info('Registered RPC '.($modifier ? 'modifier' : 'method').' '.$method);
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed register RPC '.($modifier ? 'modifier' : 'method').' '.$method.': '.((string) $e));
+                throw $e;
             }
         );
     }
@@ -228,9 +228,15 @@ class AMQP extends EventEmitter {
     
     public function unreg($method) {
         $th = $this;
+        
         return $this -> unsub('rpc_'.$this -> service.'_'.$method) -> then(
             function() use($th, $method) {
                 $th-> log -> info('Unregistered RPC '.$method);
+            }
+        ) -> catch(
+            function($e) use($th, $method) {
+                $th -> log -> error('Failed register RPC '.$method.': '.((string) $e));
+                throw $e;
             }
         );
     }
@@ -238,18 +244,9 @@ class AMQP extends EventEmitter {
     private function connect() {
         $th = $this;
         
-        $this -> log -> debug('Trying to establish AMQP connection');
+        $this -> log -> debug('Connecting to AMQP server');
         
-        $this -> client = new Client(
-            $this -> loop,
-            [
-                'host' => $this -> host,
-                'port' => $this -> port,
-                'vhost' => $this -> vhost,
-                'user' => $this -> user,
-                'password' => $this -> pass
-            ]
-        );
+        $this -> timerRetryConn = null;
         
         $this -> client -> connect() -> then(
             function($client) {
@@ -262,9 +259,8 @@ class AMQP extends EventEmitter {
             }
         ) -> then(
             function() use($th) {
-                $th -> log -> info('Connected to AMQP');
-                
-                $th -> sub(
+                $th -> log -> info('Connected to AMQP server');
+                return $th -> sub(
                     'rpcResponse',
                     function($body, $headers) use($th) {
                         $th -> handleRpcResponse($body, $headers);
@@ -273,11 +269,11 @@ class AMQP extends EventEmitter {
                     false,
                     [ 'callerId' => $th -> callerId ]
                 );
+            }
+        ) -> then(
+            function() use($th) {
                 $th -> log -> debug('Subscribed to RPC response queue');
-                
-                $th -> connected = false;
-                $th -> mapQueueToCt = [];
-                $th -> emit('connect');
+                $th -> startDeferred -> resolve(null);
             }
         ) -> catch(
             function($e) use($th) {
@@ -292,20 +288,6 @@ class AMQP extends EventEmitter {
         );
     }
     
-    private function disconnected() {
-        if(! $this -> connected)
-            return;
-        
-        $th = $this;
-        
-        $this -> connected = false;
-        $this -> emit('disconnect');
-        $this -> loop -> futureTick(function() use($th) {
-            $th -> connect();
-        });
-        $this -> log -> error('AMQP disconnected');
-    }
-    
     private function handleMsg($msg, $callback) {
         $body = json_decode($msg -> content, true);
         $headers = $msg -> headers;
@@ -318,7 +300,7 @@ class AMQP extends EventEmitter {
         
         $th = $this;
         $promise -> catch(
-            function(\Exception $e) use($th, $msg) {
+            function($e) use($th, $msg) {
                 $th -> log -> error('Rejecting AMQP message: '.((string) $e));
                 return $th -> channel -> reject($msg);
             }
@@ -329,7 +311,6 @@ class AMQP extends EventEmitter {
         ) -> catch(
             function($e) use($th) {
                 $th -> log -> error('Exception in AMQP ack/reject: '.((string) $e));
-                $th -> disconnected();
             }
         );
     }
@@ -389,7 +370,7 @@ class AMQP extends EventEmitter {
         return $promise -> then(
             function($resp) use($th, $modifier, $respHeaders) {
                 if(!$modifier) {
-                    $th -> pub(
+                    return $th -> pub(
                         'rpcResponse',
                         [
                             'response' => $resp
@@ -399,7 +380,7 @@ class AMQP extends EventEmitter {
                     );
                 }
                 else if(isset($resp['response'])) {
-                    $th -> pub(
+                    return $th -> pub(
                         'rpcResponse',
                         [
                             'response' => $resp['response']
@@ -412,7 +393,7 @@ class AMQP extends EventEmitter {
                     $respHeaders['service'] = $resp['service'];
                     $respHeaders['method'] = $resp['method'];
                     
-                    $th -> pub(
+                    return $th -> pub(
                         'rpcRequest',
                         $resp['body'],
                         $respHeaders,
@@ -425,7 +406,7 @@ class AMQP extends EventEmitter {
             }
         ) -> catch(
             function(Error $e) use($th, $respHeaders) {
-                $th -> pub(
+                return $th -> pub(
                     'rpcResponse',
                     [
                         'error' => [
@@ -440,7 +421,7 @@ class AMQP extends EventEmitter {
             }
         ) -> catch(
             function($e) use($th) {
-                $th -> log -> error('Failed to handle RPC request: '.( (string) $e ));
+                $th -> log -> error('Failed to handle RPC request: '.((string) $e));
                 throw $e;
             }
         );

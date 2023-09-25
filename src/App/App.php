@@ -44,12 +44,6 @@ class App {
             AMQP_VHOST
         );
         $this -> log -> setAmqp($this -> amqp);
-        $this -> amqp -> on('connect', function() use($th) {
-            $th -> log -> start();
-        });
-        $this -> amqp -> on('disconnect', function() use($th) {
-            $th -> log -> stop();
-        });
     }
     
     public function run() {
@@ -57,7 +51,13 @@ class App {
     }
     
     public function start() {
-        $this -> amqp -> start();
+        $th = $this;
+        
+        return $this -> amqp -> start() -> then(
+            function() use($th) {
+                return $th -> log -> start();
+            }
+        );
     }
     
     public function stop() {

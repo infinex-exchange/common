@@ -36,11 +36,12 @@ class Logger {
     
     private $service;
     private $loop;
+    private $level;
+    private $amqp;
+    
     private $hostname;
     private $instance;
-    private $level;
     private $dirty;
-    private $amqp;
     private $timerSync;
     
     function __construct($service, $loop, $level) {
@@ -49,6 +50,7 @@ class Logger {
         $this -> service = $service;
         $this -> loop = $loop;
         $this -> level = $level;
+        
         $this -> hostname = gethostname();
         $this -> instance = getmypid();
         $this -> dirty = array();
@@ -71,6 +73,8 @@ class Logger {
         );
         
         $this -> info('Started remote logging');
+        
+        return Promise\resolve(null);
     }
     
     public function stop() {
@@ -81,6 +85,10 @@ class Logger {
         return $this -> sync() -> then(
             function() use($th) {
                 $th -> info('Stopped remote logging');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> error('Failed stopping remote logging: '.((string) $e));
             }
         );
     }

@@ -8,6 +8,7 @@ use React\Promise;
 class REST {
     private $log;
     private $amqp;
+    
     private $dispatcher;
     private $routeCollector;
     
@@ -29,20 +30,35 @@ class REST {
     public function start() {
         $th = $this;
         
-        $this -> amqp -> method(
+        return $this -> amqp -> method(
             'rest',
             function($body) use($th) {
                 return $th -> request($body);
             }
+        ) -> then(
+            function() use($th) {
+                $th -> log -> info('Started REST API');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed to start REST API: '.((string) $e));
+                throw $e;
+            }
         );
-        
-        $this -> log -> info('Started REST API');
     }
     
     public function stop() {
-        $promise = $this -> amqp -> unreg('rest');
-        $this -> log -> info('Stopped REST API');
-        return $promise;
+        $th = $this;
+        
+        return $this -> amqp -> unreg('rest') -> then(
+            function() use($th) {
+                $th -> log -> info('Stopped REST API');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed to stop REST API: '.((string) $e));
+            }
+        );
     }
     
     private function request($body) {
