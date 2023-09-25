@@ -283,7 +283,7 @@ class AMQP extends EventEmitter {
                 $th -> emit('connect');
             }
         ) -> catch(
-            function($e) use($th) {
+            function(\Exception $e) use($th) {
                 $th -> log -> error('AMQP connection failed: '.((string) $e));
                 $th -> timerRetryConn = $th -> loop -> addTimer(
                     1,
