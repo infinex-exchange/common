@@ -70,7 +70,7 @@ class App {
         ) -> then(
             function() use($th) {
                 $this -> loop -> stop();
-            )
+            }
         );
     }
 }
