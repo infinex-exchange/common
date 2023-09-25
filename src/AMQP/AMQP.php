@@ -40,11 +40,11 @@ class AMQP {
         $this -> client = new Client(
             $this -> loop,
             [
-                'host' => $this -> host,
-                'port' => $this -> port,
-                'vhost' => $this -> vhost,
-                'user' => $this -> user,
-                'password' => $this -> pass
+                'host' => $host,
+                'port' => $port,
+                'vhost' => $vhost,
+                'user' => $user,
+                'password' => $pass
             ]
         );
         
