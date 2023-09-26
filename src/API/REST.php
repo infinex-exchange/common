@@ -82,7 +82,14 @@ class REST {
                             if($intVal !== false)
                                 $routeInfo[2][$k] = $intVal;
                         }
-                        $resolve($routeInfo[1]($routeInfo[2], $body['query'], $body['body'], $body['auth']));
+                        $resolve($routeInfo[1](
+                            $routeInfo[2],
+                            $body['query'],
+                            $body['body'],
+                            $body['auth'],
+                            $body['userAgent'],
+                            $body['ip']
+                        ));
                 }
             }
         );
