@@ -73,9 +73,9 @@ class REST {
                 
                 switch($routeInfo[0]) {
                     case \FastRoute\Dispatcher::NOT_FOUND:
-                        throw new APIException(404, 'INVALID_ENDPOINT', 'Invalid endpoint');
+                        throw new Error('INVALID_ENDPOINT', 'Invalid endpoint', 404);
                     case \FastRoute\Dispatcher::METHOD_NOT_ALLOWED:
-                        throw new APIException(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
+                        throw new Error('METHOD_NOT_ALLOWED', 'Method not allowed', 405);
                     case \FastRoute\Dispatcher::FOUND:
                         foreach($routeInfo[2] as $k => $v) {
                             $intVal = filter_var($v, FILTER_VALIDATE_INT);
