@@ -10,17 +10,20 @@ class REST {
     private $amqp;
     
     private $dispatcher;
-    private $routeCollector;
     
-    function __construct($log, $amqp) {
+    function __construct($log, $amqp, $apis) {
         $th = $this;
         
         $this -> log = $log;
         $this -> amqp = $amqp;
         
+        if(!is_array($apis))
+            $apis = [ $apis ];
+        
         $this -> dispatcher = \FastRoute\simpleDispatcher(
-            function($routeCollector) use($th) {
-                $th -> routeCollector = $routeCollector;
+            function($routeCollector) use($th, $apis) {
+                foreach($apis as $api)
+                    $api -> initRoutes($routeCollector);
             }
         );
         
@@ -59,10 +62,6 @@ class REST {
                 $th -> log -> error('Failed to stop REST API: '.((string) $e));
             }
         );
-    }
-    
-    public function __call($method, $args) {
-        return call_user_func_array([$this -> routeCollector, $method], $args);
     }
     
     private function request($body) {
