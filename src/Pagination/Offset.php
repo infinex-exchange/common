@@ -39,10 +39,10 @@ class Offset {
     public function iter() {
         if($this -> count == $this -> limit) {
             $this -> more = true;
-            return false;
+            return true;
         }
         $this -> count++;
-        return true;
+        return false;
     }
     
     public function sql() {
