@@ -10,7 +10,7 @@ class Offset {
     private $count;
     public $more;
     
-    function __construct($maxLimit, $defaultLimit, $userParams) {
+    function __construct($defaultLimit, $maxLimit, $userParams) {
         if(isset($userParams['offset'])) {
             if(!$this -> validateOffset($userParams['offset']))
                 throw new Error('VALIDATION_ERROR', 'Invalid pagination offset', 400);
