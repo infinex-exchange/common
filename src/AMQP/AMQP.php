@@ -302,7 +302,7 @@ class AMQP {
         $promise -> catch(
             function($e) use($th, $msg) {
                 $th -> log -> error('Rejecting AMQP message: '.((string) $e));
-                return $th -> channel -> nack($msg);
+                return $th -> channel -> reject($msg);
             }
         ) -> then(
             function() use($th, $msg) {
