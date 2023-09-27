@@ -166,7 +166,7 @@ class AMQP {
         );
     }
     
-    public function call($service, $method, $params, $timeout = 3) {
+    public function call($service, $method, $params, $timeout = 15) {
         $requestId = bin2hex(random_bytes(8));
         $deferred = new Promise\Deferred();
         $th = $this;
