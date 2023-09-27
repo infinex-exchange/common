@@ -299,14 +299,14 @@ class AMQP {
         );
         
         $th = $this;
-        $promise -> catch(
+        $promise -> then(
+            function() use($th, $msg) {
+                return $th -> channel -> ack($msg);
+            },
+            
             function($e) use($th, $msg) {
                 $th -> log -> error('Rejecting AMQP message: '.((string) $e));
                 return $th -> channel -> reject($msg);
-            }
-        ) -> then(
-            function() use($th, $msg) {
-                return $th -> channel -> ack($msg);
             }
         ) -> catch(
             function($e) use($th) {
