@@ -127,8 +127,8 @@ class AMQP {
         ) -> then(
             function() use($th, $queue, $callback) {
                 return $th -> channel -> consume(
-                    function($msg) use($th, $callback) {
-                        $th -> handleMsg($msg, $callback);
+                    function($msg, $channel) use($th, $callback) {
+                        $th -> handleMsg($msg, $channel, $callback);
                     },
                     $queue
                 );
@@ -288,7 +288,7 @@ class AMQP {
         );
     }
     
-    private function handleMsg($msg, $callback) {
+    private function handleMsg($msg, $channel, $callback) {
         $body = json_decode($msg -> content, true);
         $headers = $msg -> headers;
                 
@@ -300,13 +300,13 @@ class AMQP {
         
         $th = $this;
         $promise -> catch(
-            function($e) use($th, $msg) {
+            function($e) use($th, $msg, $channel) {
                 $th -> log -> error('Rejecting AMQP message: '.((string) $e));
-                return $th -> channel -> nack($msg);
+                return $channel -> reject($msg);
             }
         ) -> then(
-            function() use($th, $msg) {
-                return $th -> channel -> ack($msg);
+            function() use($th, $msg, $channel) {
+                return $channel -> ack($msg);
             }
         ) -> catch(
             function($e) use($th) {
