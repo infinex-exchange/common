@@ -97,14 +97,18 @@ class AMQP {
         );
     }
     
-    public function sub($event, $callback, $queue = null, $persistent = null, $headers = []) {
+    public function sub($event, $callback, $queueSuffix = null, $persistent = null, $headers = []) {
         $th = $this;
         
-        if($queue === null)
-            $queue = $event;
+        $queue = $event;
+        $unsubName = $event;
+        if($queueSuffix) {
+            $queue .= '_'.$queueSuffix;
+            $unsubName = $queueSuffix;
+        }
         
         if($persistent === null)
-            $persistent = ($queue == $event);
+            $persistent = ($queueSuffix === null);
         
         $headers['event'] = $event;
         
@@ -134,9 +138,9 @@ class AMQP {
                 );
             }
         ) -> then(
-            function($response) use($th, $queue, $event) {
-                $th -> mapQueueToCt[$queue] = $response -> consumerTag;
-                $th -> log -> debug("Subscribed to $event -> $queue");
+            function($response) use($th, $unsubName, $event) {
+                $th -> mapQueueToCt[$unsubName] = $response -> consumerTag;
+                $th -> log -> debug("Subscribed to $event -> $unsubName");
             }
         ) -> catch(
             function($e) use($th) {
@@ -204,7 +208,7 @@ class AMQP {
             function($body, $headers) use($th, $callback, $modifier) {
                 $th -> handleRpcRequest($body, $headers, $callback, $modifier);
             },
-            'rpc_'.$this -> service.'_'.$method,
+            $this -> service.'_'.$method,
             true,
             [
                 'service' => $this -> service,
@@ -229,7 +233,7 @@ class AMQP {
     public function unreg($method) {
         $th = $this;
         
-        return $this -> unsub('rpc_'.$this -> service.'_'.$method) -> then(
+        return $this -> unsub($this -> service.'_'.$method) -> then(
             function() use($th, $method) {
                 $th-> log -> info('Unregistered RPC '.$method);
             }
@@ -265,7 +269,7 @@ class AMQP {
                     function($body, $headers) use($th) {
                         $th -> handleRpcResponse($body, $headers);
                     },
-                    'rpc_resp_'.$th -> callerId,
+                    $th -> callerId,
                     false,
                     [ 'callerId' => $th -> callerId ]
                 );
