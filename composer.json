@@ -14,6 +14,9 @@
     "autoload": {
         "psr-4": {
             "Infinex\\": "src/"
-        }
+        },
+        "files": [
+            "src/functions_include.php"
+        ]
     }
 }
