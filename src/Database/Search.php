@@ -22,6 +22,8 @@ class Search {
         if($q == '')
             return;
         
+        if(!is_array($cols))
+            $cols = [ $cols ];
         foreach($cols as $i => $col) {
             $paramName = ':search_'.$i;
             $this -> task[$paramName] = '%'.$q.'%';
