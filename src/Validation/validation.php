@@ -1,6 +1,12 @@
 <?php
 
-namespace Infinex\Math;
+namespace Infinex\Validation;
+
+function validateId($id) {
+    if(!is_int($id)) return false;
+    if($id < 1) return false;
+    return true;
+}
 
 function validateFloat($float, $allowNegative = false) {
     if(gettype($float) != 'string') return false;
