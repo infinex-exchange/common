@@ -2,7 +2,7 @@
 
 namespace Infinex\Math;
 
-function validateFloat($float, $allowNegative) {
+function validateFloat($float, $allowNegative = false) {
     if(gettype($float) != 'string') return false;
     if($allowNegative && @$float[0] == '-')
         $float = substr($float, 1);
