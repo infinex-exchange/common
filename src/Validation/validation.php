@@ -15,4 +15,9 @@ function validateFloat($float, $allowNegative = false) {
     return preg_match('/^[0-9]{1,33}(\.[0-9]{1,32})?$/', $float);
 }
 
+function validateEmail($mail) {
+    if(strlen($mail) > 254) return false;
+    return preg_match('/^\\w+([\\.\\+-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,24})+$/', $mail);
+}
+
 ?>
