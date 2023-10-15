@@ -1,6 +1,8 @@
 <?php
 
-if(!function_exists('trimFloat'))
+if(!function_exists('trimFloat')) {
     require __DIR__.'/Math/trimFloat.php';
+    require __DIR__.'/Math/validateFloat.php';
+}
 
 ?>
