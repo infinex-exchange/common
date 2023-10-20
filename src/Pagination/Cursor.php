@@ -40,7 +40,8 @@ class Cursor {
         
         $this -> count = 0;
         $this -> potentialCursor = null;
-        $this -> newCursor = null;
+        $this -> cursor = null;
+    }
     
     public function iter($row) {
         if($this -> count == $this -> limit) {
