@@ -19,7 +19,7 @@ class Sorting {
             $this -> orderBy = $defaultBy;
         
         if(isset($userParams['orderDir'])) {
-            if(!in_array($userParsms['orderDir'], ['ASC', 'DESC']))
+            if(!in_array($userParams['orderDir'], ['ASC', 'DESC']))
                 throw new Error('VALIDATION_ERROR', 'orderDir', 400);
             
             $this -> orderDir = $userParams['orderDir'];
