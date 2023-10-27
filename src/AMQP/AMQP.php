@@ -79,11 +79,12 @@ class AMQP {
         );
     }
     
-    public function pub($event, $body = [], $headers = [], $persistent = true) {
+    public function pub($event, $body = [], $headers = [], $persistent = true, $ttl = null) {
         $th = $this;
         
         $headers['event'] = $event;
         $headers['delivery_mode'] = $persistent ? 2 : 1;
+        if($ttl) $headers['expiration'] = (string)($ttl * 1000);
         
         return $this -> channel -> publish(
             json_encode($body, JSON_UNESCAPED_SLASHES),
@@ -166,7 +167,7 @@ class AMQP {
         );
     }
     
-    public function call($service, $method, $params, $timeout = 15) {
+    public function call($service, $method, $params, $ttl = 10, $timeout = 15) {
         $requestId = bin2hex(random_bytes(8));
         $deferred = new Promise\Deferred();
         $th = $this;
@@ -193,7 +194,7 @@ class AMQP {
             'callerId' => $this -> callerId,
             'requestId' => $requestId
         ];
-        return $this -> pub('rpcRequest', $params, $headers, false) -> then(
+        return $this -> pub('rpcRequest', $params, $headers, false, $ttl) -> then(
             function() use($deferred) {
                 return $deferred -> promise();
             }
