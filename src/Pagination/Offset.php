@@ -25,7 +25,7 @@ class Offset {
                 throw new Error('VALIDATION_ERROR', 'Invalid pagination limit', 400);
             
             if($userParams['limit'] > $maxLimit)
-                throw new Error('VALIDATION_ERROR', 'Pagination limit out of range', 400);
+                throw new Error('LIMIT_OUT_OF_RANGE', 'Pagination limit out of range', 406);
             
             $this -> limit = $userParams['limit'];
         } else {
