@@ -8,6 +8,10 @@ function validateId($id) {
     return true;
 }
 
+function validateStrId($id) {
+    return preg_match('/^[A-Z0-9_]{1,32}$/', $id);
+}
+
 function validateFloat($float, $allowNegative = false) {
     if(gettype($float) != 'string') return false;
     if($allowNegative && @$float[0] == '-')
