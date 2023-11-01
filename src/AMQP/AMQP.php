@@ -177,7 +177,7 @@ class AMQP {
                 unset($th -> requests[$requestId]);
                 
                 $deferred -> reject(
-                    new Error('TIMEOUT', 'Request timeout', 500)
+                    new Error('TIMEOUT', 'Request timeout', 504)
                 );
                 
                 $th -> log -> error('Timeout for RPC request '.$requestId);
