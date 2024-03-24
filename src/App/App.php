@@ -17,14 +17,16 @@ class App {
         $this -> service = $service;
         
         $this -> loop = \React\EventLoop\Loop::get();
-        $this -> loop -> addSignal(SIGINT, function() use($th) {
-            $th -> log -> warn('Received SIGINT');
-            $th -> stop();
-        });
-        $this -> loop -> addSignal(SIGTERM, function() use($th) {
-            $th -> log -> warn('Received SIGTERM');
-            $th -> stop();
-        });
+        if (PHP_OS_FAMILY != "Windows") {
+            $this -> loop -> addSignal(SIGINT, function() use($th) {
+                $th -> log -> warn('Received SIGINT');
+                $th -> stop();
+            });
+            $this -> loop -> addSignal(SIGTERM, function() use($th) {
+                $th -> log -> warn('Received SIGTERM');
+                $th -> stop();
+            });
+        }
         
         $level = Logger::LL_ERROR;
         if(in_array('-d', $argv))
